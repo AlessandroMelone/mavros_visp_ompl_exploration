@@ -1,0 +1,56 @@
+<?xml version="1.0" ?>
+<launch>
+  <!-- these are the arguments you can pass this launch file-->
+	
+<!--		pos PID parameters-->
+  <arg name="Kp_pos" default="2.5"/>
+  <arg name="Ki_pos" default="0.01"/>
+  <arg name="Kd1_pos" default="0"/>
+  <arg name="Kd2_pos" default="0"/>
+  <arg name="PID_u_max_pos" default="5000"/>
+  <arg name="PID_u_min_pos" default="-5000"/>
+
+<!--		yaw PID parameters-->
+  <arg name="Kp_yaw" default="1"/>
+  <arg name="Ki_yaw" default="0.0001"/>
+  <arg name="Kd1_yaw" default="0"/>
+  <arg name="Kd2_yaw" default="0"/>
+  <arg name="PID_u_max_yaw" default="30"/>
+  <arg name="PID_u_min_yaw" default="-30"/>
+
+<!--		QR PID parameters-->
+  <arg name="Kp_qr" default="1"/>
+  <arg name="Ki_qr" default="0.001"/>
+  <arg name="Kd1_qr" default="0"/>
+  <arg name="Kd2_qr" default="0"/>
+  <arg name="PID_u_max_qr" default="300"/>
+  <arg name="PID_u_min_qr" default="-300"/>
+	
+<!--output="screen" to read the ROS_INFO msg -->
+	<node name="fly_action_server" pkg="px4_planner" type="fly_action_server" output="screen" >  
+<!--		pos PID parameters-->
+		<param name="Kp_pos" value="$(arg Kp_pos)"/>
+		<param name="Ki_pos" value="$(arg Ki_pos)"/>
+		<param name="Kd1_pos" value="$(arg Kd1_pos)"/>
+		<param name="Kd2_pos" value="$(arg Kd2_pos)"/>
+		<param name="PID_u_max_pos" value="$(arg PID_u_max_pos)"/>
+		<param name="PID_u_min_pos" value="$(arg PID_u_min_pos)"/>
+<!--		yaw PID parameters-->
+		<param name="Kp_yaw" value="$(arg Kp_yaw)"/>
+		<param name="Ki_yaw" value="$(arg Ki_yaw)"/>
+		<param name="Kd1_yaw" value="$(arg Kd1_yaw)"/>
+		<param name="Kd2_yaw" value="$(arg Kd2_yaw)"/>
+		<param name="PID_u_max_yaw" value="$(arg PID_u_max_yaw)"/>
+		<param name="PID_u_min_yaw" value="$(arg PID_u_min_yaw)"/>
+<!--		QR PID parameters-->
+		<param name="Kp_qr" value="$(arg Kp_qr)"/>
+		<param name="Ki_qr" value="$(arg Ki_qr)"/>
+		<param name="Kd1_qr" value="$(arg Kd1_qr)"/>
+		<param name="Kd2_qr" value="$(arg Kd2_qr)"/>
+		<param name="PID_u_max_qr" value="$(arg PID_u_max_qr)"/>
+		<param name="PID_u_min_qr" value="$(arg PID_u_min_qr)"/>
+	</node>
+
+
+
+</launch>
