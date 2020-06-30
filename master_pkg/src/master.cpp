@@ -6,24 +6,13 @@
 #include "boost/thread.hpp"
 #include <boost/algorithm/string.hpp>
 #include <px4_planner/planner_commander_service.h>
-//geometry_msgs/Point point
-//int32 qr_code
-//---
-//bool completed
-
 #include <qr_detector_pkg/activate_service.h>
-//bool activate
-//---
-//bool activated
-
 #include <qr_detector_pkg/qr_position_service.h>
 
 #define CLIENTSERVER_NAME "planner_commander_service"
 #define STARTING_POSITION_X 0.0
 #define STARTING_POSITION_Y 0.0
-
 #define NUM_QRCODE 7
-
 #define QRCODE_POSITION_SERVICE "/qr_detector/qr_code_pos_map"
 #define ACTIVATE_QR_SERVICE "/qr_detector/activate"
 #define QRCODE_DETECTED_MASK_TOPIC "/qr_detector/detected_QRcode_mask"
@@ -391,7 +380,7 @@ void MASTER::compute_waypoints(const float& lenght_stride, const float& lenght_x
 	//converting the way point from box frame to map frame
 	for(int i=0;i<_x_waypoints.size();i++){
 		_x_waypoints(i) = _x_waypoints(i)- 0.5;
-		_y_waypoints(i) = _y_waypoints(i) - 1.5 + 1;
+		_y_waypoints(i) = _y_waypoints(i) - 1.5;
 	}
 
 }
@@ -413,35 +402,12 @@ void MASTER::run() {
 
 
 
-/*
-modifica planner_commander_service.srv in:
-
-bool qr_code_land
-
-float32 x
-float32 y
-int32 qr_code
----
-bool completed
-
-*/
 int main( int argc, char** argv ) {
 	ros::init(argc, argv, "master_node");
 	MASTER master;
 	master.run();
 	return 0;
 
-
-
-//	px4_planner::planner_commander_service req;
-//	req.request.pointToReach_and_QRcode.point.x = 1;
-//	req.request.pointToReach_and_QRcode.point.y = 2;
-//	req.request.pointToReach_and_QRcode.point.z = 3;
-//	req.request.pointToReach_and_QRcode.qr_code = 4;
-//	if (_client_planner.call(req))
-//		cout<<"done"<<endl;
-//	else
-//		cout<<"Failed"<<endl;
 
 
 	return 0;
