@@ -1,11 +1,15 @@
 /*********************************************************************
+The aim of this node is to use the information provided by VISP (camera frame)
+and transform them in order to behave like a server containing all the
+position (map frame) of the QR codes that has been readed.
+
 The aim of this node is to receive a "long path" (in the x and y coordinates) from the master node and
-split into more "short path" (in the x and y coordinates). The computed paths are sended to a node that directly commands the UAV.
+split into more "shorter path" (in the x and y coordinates). The computed paths are sended to a node that directly commands the UAV.
 Once a path are sended, the node waits that it is performed by the UAV and compute the next path using an RTT star planning algorithm.
 Given a path in x and y coordinates, the planning alghoritm is used to obtain the z coordinates needed to avoid obtacles.
 The obstacles are detected using an octomap that is builded during the UAV movements.
 
-The solution to plan more "short path" is adopted because the entire octomap of the environmnet is unknown and has to be builded.
+The solution to plan more "shorter path" is adopted because the entire octomap of the environmnet is unknown and has to be builded.
 
 *********************************************************************/
 
@@ -334,7 +338,6 @@ void OMPL_PLAN::plan() {
 	// attempt to solve the problem within one second of planning time
   _tree_obj = _tree_obj_new;
 	ob::PlannerStatus solved = plan->solve(SOLVE_PLANNING_TIME_LIMIT);
-
 	if (solved) {
 
 		std::cout << "Found solution:" << std::endl;
@@ -368,11 +371,6 @@ void OMPL_PLAN::plan() {
     plan_complete = true;
 
 		ros::Rate r(10);
-	/*	while(ros::ok()) {
-			_path_pub.publish( generated_path );
-			r.sleep();
-		} */
-
 	}
 	else {
     plan_complete = true;
@@ -388,8 +386,8 @@ Wait until the plan is completed ???
 *************************************************************************************************************************************************/
 nav_msgs::Path OMPL_PLAN::run(float x_i,float y_i, float z_i, float x_f, float y_f, float z_f) {
   cout<<"\nTrying to plan for:\n\tx_i = "<<x_i<<"  y_i = "<<y_i<<"  z_i = "<<z_i<<" \n\tx_f = "<<x_f<<"  y_f = "<<y_f<<"  z_f = "<<z_f<<endl;
-  if(generated_path)
-  	delete generated_path;
+  //if(generated_path)
+  // 	delete generated_path;
   generated_path = new nav_msgs::Path();
 	ompl_init(x_i, y_i,z_i, x_f, y_f,z_f);
   plan_complete = false;
@@ -628,7 +626,7 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
   if (z_f > z_i) { height_increased = true; }
   else { height_increased = false; }
 
-  if (extra_path || true) {
+  if (extra_path) {
   	geometry_msgs::PoseStamped temp_pose;
   	temp_pose.pose.position.x = x_i;
 	  temp_pose.pose.position.y = y_i;
