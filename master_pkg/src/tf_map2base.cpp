@@ -70,7 +70,7 @@ void ROS_SUB::run(){
 
 
 int main( int argc, char** argv ) {
-	ros::init(argc, argv, "qr_detector_node");
+	ros::init(argc, argv, "tf_map2base_node");
 	ROS_SUB rs;
 	rs.run();
 	return 0;
