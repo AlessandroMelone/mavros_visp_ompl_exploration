@@ -660,7 +660,7 @@ void QuadCommanderManager::run() {
 
 int main(int argc, char** argv ) {
 
-  ros::init(argc, argv, "px4_planner_node");
+  ros::init(argc, argv, "fly_action_client_node");
 
   QuadCommanderManager manager;
   manager.run();
