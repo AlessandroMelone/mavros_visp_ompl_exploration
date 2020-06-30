@@ -197,7 +197,7 @@ class OMPL_PLAN {
     std::shared_ptr<fcl::CollisionGeometry> _Robot;
 	  std::shared_ptr<fcl::CollisionGeometry> _tree_obj;
 	  ros::Subscriber _octree_sub;
-	  bool solving_planning = false;
+	  bool octomap_updated = false;
 	  nav_msgs::Path *generated_path = NULL;
 };
 
@@ -210,19 +210,19 @@ OMPL_PLAN::OMPL_PLAN() {
 
 void OMPL_PLAN::updateMap(std::shared_ptr<fcl::CollisionGeometry> map) {
 	_tree_obj = map;
+	octomap_updated = true;
   cout<<"-----> Octomap Update"<<endl;
 }
 
 void OMPL_PLAN::octomapCallback(const octomap_msgs::Octomap::ConstPtr &msg) {
 
-  if (!solving_planning) {
+
   	// convert octree to collision object
   	octomap::OcTree* tree_oct = dynamic_cast<octomap::OcTree*>(octomap_msgs::msgToMap(*msg));
   	fcl::OcTree* tree = new fcl::OcTree(std::shared_ptr<const octomap::OcTree>(tree_oct));
 
   	// Update the octree used for collision checking
   	updateMap(std::shared_ptr<fcl::CollisionGeometry>(tree));
-  }
   else cout<<"-----> Octomap cannot be updated";
 }
 
@@ -375,7 +375,6 @@ void OMPL_PLAN::plan() {
     cout << "CORCAZZO!" << endl;
   }
 
-  solving_planning = false;
 
   plan->clear();
 }
@@ -390,10 +389,11 @@ nav_msgs::Path OMPL_PLAN::run(float x_i,float y_i, float z_i, float x_f, float y
   // 	delete generated_path;
   generated_path = new nav_msgs::Path();
 	ompl_init(x_i, y_i,z_i, x_f, y_f,z_f);
-  solving_planning = true;
-	boost::thread plan_t( &OMPL_PLAN::plan, this);
-  while (ros::ok() && solving_planning)
-	   ros::spinOnce();
+	while (ros::ok() && !octomap_updated) { }
+	//boost::thread plan_t( &OMPL_PLAN::plan, this);
+	plan();
+ // while (ros::ok() && solving_planning)
+//	   ros::spinOnce();
 
   return (*generated_path);
 }
