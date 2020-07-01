@@ -51,6 +51,7 @@ The solution to plan more "shorter path" is adopted because the entire octomap o
 #define BOX_SIZE_3 1.0
 #define STARTING_HEIGHT 1.5
 #define INCREASE_HEIGHT 0.5 //height increase amount when the planning fails.
+#define NPATH_BEFORE_DECREASE_ALTITUDE 2
 
 /* Client variables */
 #define START_PATH_PLANNING 6
@@ -584,6 +585,7 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
   static float z_i = STARTING_HEIGHT;
   static float z_f = STARTING_HEIGHT;
   static bool height_increased = false;
+  static int wait_before_decrease_altitude = 0;
   int extra_path = 0;
 
   float x_i = points_generator.get_current_x_checkpoint();
@@ -594,7 +596,7 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
 
 
   z_i = z_f;
-  if (!height_increased) {
+  if (!wait_before_decrease_altitude) {
     z_f = STARTING_HEIGHT;
   }
 
@@ -622,8 +624,8 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
     }
   }
 
-  if (z_f > (z_i-extra_path*INCREASE_HEIGHT)) { height_increased = true; }
-  else { height_increased = false; }
+  if (z_f > (z_i-extra_path*INCREASE_HEIGHT)) { wait_before_decrease_altitude = NPATH_BEFORE_DECREASE_ALTITUDE; }
+  else { wait_before_decrease_altitude--; }
 
   if (extra_path) {
   	geometry_msgs::PoseStamped temp_pose;
