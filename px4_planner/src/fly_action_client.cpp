@@ -193,7 +193,7 @@ class OMPL_PLAN {
     std::shared_ptr<fcl::CollisionGeometry> _Robot;
 	  std::shared_ptr<fcl::CollisionGeometry> _tree_obj;
 	  ros::Subscriber _octree_sub;
-	  bool octomap_updated = false;
+	  bool solving_planning = false;
 	  nav_msgs::Path *generated_path = NULL;
 };
 
@@ -206,20 +206,24 @@ OMPL_PLAN::OMPL_PLAN() {
 
 void OMPL_PLAN::updateMap(std::shared_ptr<fcl::CollisionGeometry> map) {
 	_tree_obj = map;
-	octomap_updated = true;
   cout<<"-----> Octomap Update"<<endl;
 }
 
 void OMPL_PLAN::octomapCallback(const octomap_msgs::Octomap::ConstPtr &msg) {
 
+  cout<<"-----> Octo callback"<<endl;
 
   	// convert octree to collision object
   	octomap::OcTree* tree_oct = dynamic_cast<octomap::OcTree*>(octomap_msgs::msgToMap(*msg));
   	fcl::OcTree* tree = new fcl::OcTree(std::shared_ptr<const octomap::OcTree>(tree_oct));
 
+    //ros::Rate r(5);
+    while (ros::ok() && solving_planning) {
+      cout<<"----> Waiting to update octomap"<<endl;
+      //r.sleep();
+    }
   	// Update the octree used for collision checking
   	updateMap(std::shared_ptr<fcl::CollisionGeometry>(tree));
-//  else {cout<<"-----> Octomap cannot be updated"; }
 }
 
 
@@ -227,8 +231,7 @@ void OMPL_PLAN::octomapCallback(const octomap_msgs::Octomap::ConstPtr &msg) {
 /*************************************************************************************************************************************************
 Check if a state is valid accordingly to the published octomap
 *************************************************************************************************************************************************/
-bool OMPL_PLAN::isStateValid(const ob::State *state)
-{
+bool OMPL_PLAN::isStateValid(const ob::State *state){
 	// cast the abstract state type to the type we expect
 	const ob::SE3StateSpace::StateType *se3state = state->as<ob::SE3StateSpace::StateType>();
 
@@ -334,7 +337,9 @@ void OMPL_PLAN::plan() {
 	//_pdef->print(std::cout);
 
 	// attempt to solve the problem within one second of planning time
+  solving_planning = true;
 	ob::PlannerStatus solved = plan->solve(SOLVE_PLANNING_TIME_LIMIT);
+  solving_planning = false;
 	if (solved) {
 
 		std::cout << "Found solution:" << std::endl;
@@ -370,8 +375,6 @@ void OMPL_PLAN::plan() {
 	else {
     cout << "CORCAZZO!" << endl;
   }
-
-
   plan->clear();
 }
 
@@ -385,7 +388,6 @@ nav_msgs::Path OMPL_PLAN::run(float x_i,float y_i, float z_i, float x_f, float y
   // 	delete generated_path;
   generated_path = new nav_msgs::Path();
 	ompl_init(x_i, y_i,z_i, x_f, y_f,z_f);
-	while (ros::ok() && !octomap_updated) { }
 	//boost::thread plan_t( &OMPL_PLAN::plan, this);
 	plan();
  // while (ros::ok() && solving_planning)
@@ -477,6 +479,7 @@ bool QuadCommanderManager::serviceCB(px4_planner::planner_commander_service::Req
   performing_action = goal.command_mask;
   while (points_generator.haveMorePoints()) {
     cout<<endl<<"----------------------------------"<<endl<<endl<<"----> A new goal is going to be send: Fallow path"<<endl;
+    ros::spinOnce();
     goal.path = computePath_mod_OMPLinterface();
     _path_pub.publish(goal.path);
     ac.sendGoal(goal, boost::bind(&QuadCommanderManager::doneCB,this,_1,_2), NULL, boost::bind(&QuadCommanderManager::feedbackCB,this,_1));
@@ -632,13 +635,17 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
     temp_pose.pose.orientation.z = 0;
     temp_pose.pose.orientation.w = 1;
 
+    cout<<"here"<<endl;
+
     nav_msgs::Path temp_path;
     temp_path.poses.push_back(temp_pose);
 
     for (int i = 0; i<path.poses.size(); i++) {
       temp_path.poses.push_back(path.poses[i]);
+      cout<<"here "<<i<<endl;
     }
     path = temp_path;
+    cout<<"here.."<<endl;
   }
 
   quadcopterPosition = path.poses[path.poses.size()-1].pose.position;
