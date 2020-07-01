@@ -2,15 +2,12 @@
 The aim of this node is to use the information provided by VISP (camera frame)
 and transform them in order to behave like a server containing all the
 position (map frame) of the QR codes that has been readed.
-
 The aim of this node is to receive a "long path" (in the x and y coordinates) from the master node and
 split into more "shorter path" (in the x and y coordinates). The computed paths are sended to a node that directly commands the UAV.
 Once a path are sended, the node waits that it is performed by the UAV and compute the next path using an RTT star planning algorithm.
 Given a path in x and y coordinates, the planning alghoritm is used to obtain the z coordinates needed to avoid obtacles.
 The obstacles are detected using an octomap that is builded during the UAV movements.
-
 The solution to plan more "shorter path" is adopted because the entire octomap of the environmnet is unknown and has to be builded.
-
 *********************************************************************/
 
 
@@ -175,7 +172,6 @@ void POINTS_INTERATOR::print_checkpoints() {
 
 /*************************************************************************************************************************************************
 Class to compute the planning. It uses an RTT star algorithm.
-
 *************************************************************************************************************************************************/
 class OMPL_PLAN {
 	public:
@@ -223,7 +219,7 @@ void OMPL_PLAN::octomapCallback(const octomap_msgs::Octomap::ConstPtr &msg) {
 
   	// Update the octree used for collision checking
   	updateMap(std::shared_ptr<fcl::CollisionGeometry>(tree));
-  else cout<<"-----> Octomap cannot be updated";
+//  else {cout<<"-----> Octomap cannot be updated"; }
 }
 
 
@@ -411,7 +407,6 @@ typedef actionlib::SimpleActionClient<px4_planner::FlyAction> Client;
 
 /*************************************************************************************************************************************************
 Class that manage the exchange of information with the UAV controller. It uses the class POINTS_INTERATOR and OMPL_PLAN.
-
 quadcopterPosition: quadcopter position
 quadcopterFlying: quadcopter is flying or not
 *************************************************************************************************************************************************/
@@ -624,7 +619,7 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
     }
   }
 
-  if (z_f > z_i) { height_increased = true; }
+  if (z_f > (z_i-extra_path*INCREASE_HEIGHT)) { height_increased = true; }
   else { height_increased = false; }
 
   if (extra_path) {
@@ -637,17 +632,13 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
     temp_pose.pose.orientation.z = 0;
     temp_pose.pose.orientation.w = 1;
 
-    cout<<"here"<<endl;
-
     nav_msgs::Path temp_path;
     temp_path.poses.push_back(temp_pose);
 
     for (int i = 0; i<path.poses.size(); i++) {
       temp_path.poses.push_back(path.poses[i]);
-      cout<<"here "<<i<<endl;
     }
     path = temp_path;
-    cout<<"here.."<<endl;
   }
 
   quadcopterPosition = path.poses[path.poses.size()-1].pose.position;
