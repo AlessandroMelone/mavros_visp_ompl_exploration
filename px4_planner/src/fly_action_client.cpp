@@ -1,7 +1,4 @@
 /*********************************************************************
-The aim of this node is to use the information provided by VISP (camera frame)
-and transform them in order to behave like a server containing all the
-position (map frame) of the QR codes that has been readed.
 The aim of this node is to receive a "long path" (in the x and y coordinates) from the master node and
 split into more "shorter path" (in the x and y coordinates). The computed paths are sended to a node that directly commands the UAV.
 Once a path are sended, the node waits that it is performed by the UAV and compute the next path using an RTT star planning algorithm.
@@ -58,7 +55,8 @@ The solution to plan more "shorter path" is adopted because the entire octomap o
 #define ACTIONCLIENTSERVER_NAME "PathCommand_actionserver"
 
 #define CHECKPOINTS_MAXDISTANCE 1.5 //how to compute checkpoints?
-#define PATH_VEL 1.0
+#define PATH_VEL_MAX 1.0
+#define PATH_VEL_MIN 0.5
 
 #define CLIENTSERVER_NAME "planner_commander_service"
 
@@ -87,11 +85,12 @@ class POINTS_INTERATOR {
     float get_current_y_checkpoint();
     void print_checkpoints();
     int index;
+    int points_number;
 
   private:
     Eigen::VectorXd x_checkpoints;
     Eigen::VectorXd y_checkpoints;
-    int points_number;
+
 };
 
 
@@ -181,9 +180,9 @@ class OMPL_PLAN {
 		void ompl_init(float x_i,float y_i, float z_i, float x_f, float y_f, float z_f);
 		void plan();
 		ob::OptimizationObjectivePtr getPathLengthObjWithCostToGo(const ob::SpaceInformationPtr& si);
-    	bool isStateValid(const ob::State *state);
+  	bool isStateValid(const ob::State *state);
 		bool isStateValid2(const ob::State *state);
-    	void octomapCallback(const octomap_msgs::Octomap::ConstPtr &msg);
+    void octomapCallback(const octomap_msgs::Octomap::ConstPtr &msg);
 		void updateMap(std::shared_ptr<fcl::CollisionGeometry> map);
 
 	private:
@@ -458,7 +457,7 @@ bool QuadCommanderManager::serviceCB(px4_planner::planner_commander_service::Req
 
 /************************************ 1. (possible) Take off action ***********************************/
   if (!quadcopterFlying) {
-    goal.path_vel = PATH_VEL; goal.qr_code = -1;
+    goal.path_vel = PATH_VEL_MAX; goal.qr_code = -1;
     goal.command_mask = px4_planner::FlyGoal::TAKEOFF;
     geometry_msgs::PoseStamped p;
     p.pose.position.z = STARTING_HEIGHT;
@@ -475,12 +474,19 @@ bool QuadCommanderManager::serviceCB(px4_planner::planner_commander_service::Req
   points_generator.print_checkpoints();
 
   /************************************ 2. Fallow path action ************************************/
-  goal.path_vel = PATH_VEL;   goal.qr_code = -1;
+  goal.qr_code = -1;
   goal.command_mask = px4_planner::FlyGoal::FOLLOWPATH;
   performing_action = goal.command_mask;
   while (points_generator.haveMorePoints()) {
-    cout<<endl<<"----------------------------------"<<endl<<endl<<"----> A new goal is going to be send: Fallow path"<<endl;
-    ros::spinOnce();
+
+    ros::spinOnce();  //update the OMPL octomap
+    if (points_generator.index == 0 || points_generator.index == points_generator.points_number-2) {
+      goal.path_vel = PATH_VEL_MIN;
+    }
+    else {
+      goal.path_vel = PATH_VEL_MAX;
+    }
+    cout<<endl<<"----------------------------------"<<endl<<endl<<"----> A new goal is going to be send after the planning: Fallow path, vel: "<<goal.path_vel<<endl;
     goal.path = computePath_mod_OMPLinterface();
     _path_pub.publish(goal.path);
     ac.sendGoal(goal, boost::bind(&QuadCommanderManager::doneCB,this,_1,_2), NULL, boost::bind(&QuadCommanderManager::feedbackCB,this,_1));
@@ -490,7 +496,7 @@ bool QuadCommanderManager::serviceCB(px4_planner::planner_commander_service::Req
   }
 
   /************************************ 3. End path advertising action ************************************/
-  goal.path_vel = PATH_VEL;   goal.qr_code = -1;
+  goal.path_vel = PATH_VEL_MAX;   goal.qr_code = -1;
   goal.command_mask = px4_planner::FlyGoal::END_PATH;
   cout<<endl<<"----------------------------------"<<endl<<"---> A new goal is going to be send: End Path"<<endl;
   ac.sendGoal(goal, boost::bind(&QuadCommanderManager::doneCB,this,_1,_2), NULL, boost::bind(&QuadCommanderManager::feedbackCB,this,_1));
@@ -501,7 +507,7 @@ bool QuadCommanderManager::serviceCB(px4_planner::planner_commander_service::Req
   /************************************ 4. (possibile) Land action ************************************/
   //if (req.land_mask != px4_planner::planner_commander_service::NO_LAND) {
   if (req.land_mask != 0) {
-    goal.path_vel = PATH_VEL;
+    goal.path_vel = PATH_VEL_MAX;
     goal.command_mask = px4_planner::FlyGoal::QrCODE_LAND;
     //if (req.land_mask == px4_planner::planner_commander_service::QR_CODE_LAND)     goal.qr_code = req.qr_code;
     if (req.land_mask == 2) {
