@@ -337,33 +337,37 @@ void MASTER::compute_waypoints(const float& lenght_stride, const float& lenght_x
 	std::cout<<"Parameters list: "<<std::endl;
 	std::cout<<"lenght_y "<<lenght_y<<" lenght_stride: "<<lenght_stride<<" size_uav: "<<size_uav<<" lenght_stride: "<<lenght_stride<<std::endl;
 
-	int n = floor((lenght_y-size_uav)/lenght_stride); //to be more computationally efficient compute the size of the matrix
+	int n = (int)lenght_y/lenght_stride;
 	if(n==0) {
-		ROS_WARN("too wide lenght_stride");
+		ROS_ERROR("too wide lenght_stride");
 		return;
 	}
 
 	// generation points
-  _x_waypoints.resize(n*2+2); //to be more computationally efficient
-	_y_waypoints.resize(n*2+2);
+  _x_waypoints.resize(n*2); 
+	_y_waypoints.resize(n*2);
 
-	for(int i=0; i<n; i++){
-		_x_waypoints(i*2) = size_uav/2;
-		_x_waypoints(i*2+1) = lenght_x - size_uav/2;
-
-		_y_waypoints(i*2+1) = _y_waypoints(i*2) = size_uav/2 + i*lenght_stride;
+	for(int i=0; i < n; i++){
+		_x_waypoints(i*2) = lenght_stride/2;
+		_x_waypoints(i*2+1) = lenght_x - lenght_stride/2; 
+		_y_waypoints(i*2+1) = _y_waypoints(i*2) = lenght_stride/2 + i*lenght_stride;
+		cout<<"_y_waypoints "<<i<<_y_waypoints(i*2)<<endl;
 	}
 
 
   //set waypoints to be sure to perlustrate all the box
-  _x_waypoints(n*2) = size_uav/2;
-	_x_waypoints(n*2+1) = lenght_x - size_uav/2;
+  if(n != lenght_y/lenght_stride){
+ 	  _x_waypoints.resize(n*2+2); 
+		_y_waypoints.resize(n*2+2);
+	
+		_x_waypoints(n*2) = lenght_stride/2;
+		_x_waypoints(n*2+1) = lenght_x - lenght_stride/2;
 
-  _y_waypoints(n*2+1) = _y_waypoints(n*2) = lenght_y - size_uav/2;
-
+		_y_waypoints(n*2+1) = _y_waypoints(n*2) = lenght_y - lenght_stride/2;
+	}
 
 	int j = 2;
-	while(j < n*2+2){ //
+	while(j < _x_waypoints.size()){ 
 		double x_swap,y_swap;
 		x_swap = _x_waypoints(j);
 		y_swap = _y_waypoints(j);
@@ -384,6 +388,7 @@ void MASTER::compute_waypoints(const float& lenght_stride, const float& lenght_x
 	}
 
 }
+
 
 void MASTER::print_waypoints(){
 	std::cout<<endl<<"-----> These are the waypoints: "<<endl;
