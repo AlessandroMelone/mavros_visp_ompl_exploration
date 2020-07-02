@@ -16,6 +16,7 @@
 #define QRCODE_POSITION_SERVICE "/qr_detector/qr_code_pos_map"
 #define ACTIVATE_QR_SERVICE "/qr_detector/activate"
 #define QRCODE_DETECTED_MASK_TOPIC "/qr_detector/detected_QRcode_mask"
+#define TIME_TO_WAIT_ON_QRCODE 1.0
 
 
 
@@ -102,11 +103,12 @@ void MASTER::master_menu(){
 		cout<<endl<<"Here, a list of the possible actions: "<<endl;
 		cout<<"\t 1. Start exploring action"<<endl;
 		cout<<"\t 2. Show the QR code obtained positions"<<endl;
-		cout<<"\t 3. Reach a QR code. Its position is taken by the server."<<endl;
+		cout<<"\t 3. Reach a QR code sequence. Their position is taken by the server."<<endl;
 		cout<<"\t 4. Start exploring action (no QR code detection)"<<endl;
 		cout<<"\t 5. Activate qr detection"<<endl;
 		cout<<"\t 6. Reach a QR code. Its position is given by the user."<<endl;
 		cout<<"\t 7. Land on point. Its position is given by the user."<<endl;
+		cout<<"\t 8. Reach the QR code TEST sequence"<<endl;
 		cout<<"\t 0. Exit"<<endl;
 		cout<<"-----------------> Make your choice: ";
 		std::getline(cin, inputString);
@@ -147,30 +149,38 @@ void MASTER::master_menu(){
 		}
 
 		else if (inputString=="3") {
-			qr_detector_pkg::qr_position_service srv;
-			geometry_msgs::Point point;
-			cout<<"Write down here the QR code sequence you want to nagivate"<<endl; 	cout<<"\t\t Example: 2 1 3 4"<<endl;
-			cout<<"Qr code sequence: "; std::getline(cin, inputString);	cout<<endl;
-			std::vector<std::string> qr_code_sequence;
-			boost::split(qr_code_sequence, inputString, [](char c) {return c==' ';});
+			qr_detector_pkg::activate_service srv_activate;
+			srv_activate.request.activate = true;
+			if (_client_qrdetector.call(srv_activate)) {
+				cout<<"QR detector correctly activated."<<endl;
+				qr_detector_pkg::qr_position_service srv;
+				geometry_msgs::Point point;
+				cout<<"Write down here the QR code sequence you want to nagivate"<<endl; 	cout<<"\t\t Example: 2 1 3 4"<<endl;
+				cout<<"Qr code sequence: "; std::getline(cin, inputString);	cout<<endl;
+				std::vector<std::string> qr_code_sequence;
+				boost::split(qr_code_sequence, inputString, [](char c) {return c==' ';});
 
-
-			for (int i=0; i<qr_code_sequence.size(); i++){
-				int qr_code = atoi(qr_code_sequence[i].c_str());
-				if ((qr_detected_mask & int(pow(2,qr_code-1))) != 0) {
-					srv.request.qr_code = qr_code;
-					if (_client_qrPosition.call(srv)) {
-						point = srv.response.qr_position;
-						cout<<"--- QR code : "<<qr_code;
-						cout<<"------------> x: "<<point.x<<" ,  y: "<<point.y<<" ,  z:  "<<point.z<<endl;
+				for (int i=0; i<qr_code_sequence.size(); i++){
+					int qr_code = atoi(qr_code_sequence[i].c_str());
+					if ((qr_detected_mask & int(pow(2,qr_code-1))) != 0) {
+						srv.request.qr_code = qr_code;
+						if (_client_qrPosition.call(srv)) {
+							point = srv.response.qr_position;
+							cout<<"--- QR code : "<<qr_code;
+							cout<<"------------> x: "<<point.x<<" ,  y: "<<point.y<<" ,  z:  "<<point.z<<endl;
+						}
+						else {
+							cout<<"Failed to call qr_position_service"<<endl;
+						}
+						landOn_QRcode(point.x, point.y, qr_code);
+						ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
 					}
-					else {
-						cout<<"Failed to call qr_position_service"<<endl;
-					}
-					landOn_QRcode(point.x, point.y, qr_code);
+					else cout<<"QR code "<<qr_code<<" has not been detected yet, please start again the exploration phase"<<endl;
 				}
-				else cout<<"QR code "<<qr_code<<" has not been detected yet, please start again the exploration phase"<<endl;
-			}
+				landOn_Point(STARTING_POSITION_X, STARTING_POSITION_Y);
+				srv_activate.request.activate = false;
+				_client_qrdetector.call(srv);
+			}	
 		}
 
 		else if (inputString=="4") { //Start exploring action
@@ -218,6 +228,30 @@ void MASTER::master_menu(){
 			cout<<"\t qr_code: "; 	std::getline(cin, inputString);
 			int qr_code = (int)stof(inputString);
 			landOn_Point(x_cord, y_cord);
+		}
+
+		else if (inputString=="8") {
+				qr_detector_pkg::activate_service srv_activate;
+				srv_activate.request.activate = true;
+				if (_client_qrdetector.call(srv_activate)) {
+					landOn_QRcode(2.27077, 0.483215, 4);
+					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+					landOn_QRcode(7.84261, 8.01971, 5);
+					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+					landOn_QRcode(13.8426, 3.45998, 6);
+					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+					landOn_QRcode(4.39203, 2.51232, 1);
+					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+					landOn_QRcode(5.03641, 8.14686, 2);		
+					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+					landOn_Point(STARTING_POSITION_X, STARTING_POSITION_Y);
+					srv_activate.request.activate = false;
+					_client_qrdetector.call(srv_activate);
+
+				}
+				else { 	cout<<"Failed to activate the QR detector."<<endl; 	}
+
+
 		}
 	}
 	cout<<"Bye bye :)"<<endl;
