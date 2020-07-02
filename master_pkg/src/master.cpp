@@ -177,7 +177,6 @@ void MASTER::master_menu(){
 					}
 					else cout<<"QR code "<<qr_code<<" has not been detected yet, please start again the exploration phase"<<endl;
 				}
-				landOn_Point(STARTING_POSITION_X, STARTING_POSITION_Y);
 				srv_activate.request.activate = false;
 				_client_qrdetector.call(srv);
 			}	
@@ -231,27 +230,16 @@ void MASTER::master_menu(){
 		}
 
 		else if (inputString=="8") {
-				qr_detector_pkg::activate_service srv_activate;
-				srv_activate.request.activate = true;
-				if (_client_qrdetector.call(srv_activate)) {
-					landOn_QRcode(2.27077, 0.483215, 4);
-					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-					landOn_QRcode(7.84261, 8.01971, 5);
-					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-					landOn_QRcode(13.8426, 3.45998, 6);
-					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-					landOn_QRcode(4.39203, 2.51232, 1);
-					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-					landOn_QRcode(5.03641, 8.14686, 2);		
-					ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-					landOn_Point(STARTING_POSITION_X, STARTING_POSITION_Y);
-					srv_activate.request.activate = false;
-					_client_qrdetector.call(srv_activate);
-
-				}
-				else { 	cout<<"Failed to activate the QR detector."<<endl; 	}
-
-
+				landOn_QRcode(2.27077, 0.483215, 4);
+				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+				landOn_QRcode(7.84261, 8.01971, 5);
+				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+				landOn_QRcode(13.8426, 3.45998, 6);
+				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+				landOn_QRcode(4.39203, 2.51232, 1);
+				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+				landOn_QRcode(5.03641, 8.14686, 2);		
+				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
 		}
 	}
 	cout<<"Bye bye :)"<<endl;

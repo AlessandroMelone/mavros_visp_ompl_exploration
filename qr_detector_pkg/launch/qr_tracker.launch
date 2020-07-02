@@ -6,10 +6,9 @@
     <param name="model_path" value="$(find qr_detector_pkg)/resource/visp_qr_models" />
     <param name="model_name" value="pattern" />
     <param name="debug_display" value="True" />
-    <remap from="/visp_auto_tracker/camera_info" to="/rgb_camera/camera_info"/>
-    <remap from="/visp_auto_tracker/image_raw" to="/rgb_camera/image_raw"/>
+    <remap from="/visp_auto_tracker/camera_info" to="/tarot/camera_raw/camera_info"/>
+    <remap from="/visp_auto_tracker/image_raw" to="/tarot/camera_raw/image_raw"/>
   </node>
-
 
   <node pkg="qr_detector_pkg" type="qr_detector_exe" name="qr_detector_exe" output="screen">
   </node>

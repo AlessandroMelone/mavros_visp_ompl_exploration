@@ -1,18 +1,11 @@
 <?xml version="1.0" ?>
 <launch>
 
-  <arg name="lenght_x" default="18"/>
+  <arg name="lenght_x" default="20"/>
   <arg name="lenght_y" default="10"/>
   <arg name="size_uav" default="1.3"/>
-  <arg name="lenght_stride" default="2.7"/>
+  <arg name="lenght_stride" default="2.5"/>
   <arg name="_tot_number_qr_code" default="7"/>
-  <arg name="world" default="$(find exploration_world)/worlds/ch1.world"/>
-
-
-  <env name="GAZEBO_MODEL_PATH" value="$(find exploration_world)/models:$(optenv GAZEBO_MODEL_PATH)" />
-  <include file="$(find px4)/Tools/sitl_gazebo/launch/tarot/tarot_exploration.launch">
-    <arg name="world" value="$(arg world)"/>
-  </include>
 
   <include file="$(find master_pkg)/launch/tf_trasform.launch" />
 

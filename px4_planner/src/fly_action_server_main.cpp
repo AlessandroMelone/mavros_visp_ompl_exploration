@@ -3,7 +3,7 @@
 #define ACTIONCLIENTSERVER_NAME "PathCommand_actionserver"
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "fly_action_server");
+  ros::init(argc, argv, "fly_action_server_node");
 
   FlyAction fly_object(ACTIONCLIENTSERVER_NAME);
 	fly_object.run();

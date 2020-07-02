@@ -25,8 +25,8 @@ the "long path" composed by "short path" elements.
 
 #include <px4_planner/FlyAction.h>
 
-#include <kdl/velocityprofile_trap.hpp>
-/*#include <kdl/velocityprofile_rect.hpp>*/
+/*#include <kdl/velocityprofile_trap.hpp>*/
+#include <kdl/velocityprofile_rect.hpp>
 /*#include <kdl/velocityprofile_spline.hpp>*/
 
 #include <kdl/rotational_interpolation_sa.hpp>
@@ -43,7 +43,6 @@ the "long path" composed by "short path" elements.
 #include <nav_msgs/Path.h>
 #include "std_msgs/Float32.h"
 //#include <termios.h>
-//---mavros_msgs
 #include "mavros_msgs/State.h"
 #include "mavros_msgs/CommandBool.h"
 #include "mavros_msgs/SetMode.h"
@@ -60,7 +59,7 @@ the "long path" composed by "short path" elements.
 #include <queue>    
 
 #define PID_FREQ 10.0
-
+#define FAULT_THRESHOLD 4.0
 /*COLORS*/
 #define degToRad(angleInDegrees) ((angleInDegrees) * M_PI / 180.0)
 #define RESET   "\033[0m"
@@ -135,11 +134,11 @@ class PathFollower {
 /*    bool reaching_start_traj(Eigen::Vector4d curr_pose);*/
 /*    Eigen::Vector4d compute_speed_command(Eigen::Vector4d curr_pose, ros::Publisher des_pose_pub, ros::Publisher marker_velocity_pub);//need to be called with _freq Hz */
     Eigen::Vector4d compute_speed_command(Eigen::Vector4d curr_pose);
-    void publishing_rviz_topic(Eigen::Vector4d curr_pose, Eigen::Vector3d des_pos, double des_yaw, Eigen::Vector4d speed_command);
+    void publishing_rviz_topic(const Eigen::Vector4d& curr_pose, const Eigen::Vector3d& des_pos, double des_yaw,const Eigen::Vector3d& lin_vel);
       
     
     float get_percentage_traveled(); //to give the feedback to client action server 
-   
+    bool check_disaster(Eigen::Vector4d curr_pose);
     void reset_PIDs_state(){ PID_pos.reset_PID(); PID_pos.reset_PID(); } //to call when a path is finished (e.g. go out the PIDs loop) 
     void set_gains_pos(float Kp, float Ki, float Kd1, float Kd2){PID_pos.set_gains(Kp, Ki, Kd1, Kd2); _gains_pos_setted = true;}
     void set_gains_yaw(float Kp, float Ki, float Kd1, float Kd2){PID_yaw.set_gains(Kp, Ki, Kd1, Kd2); _gains_yaw_setted = true;}
@@ -185,7 +184,7 @@ class FlyAction
 			void arm_and_set_mode(const geometry_msgs::PoseStamped&);
 			void goalCB();
 			void preemptCB();
-
+			
 
 		protected:
 			std::queue<px4_planner::FlyGoal> _goal_queue;

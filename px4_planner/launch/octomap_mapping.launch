@@ -8,8 +8,7 @@
 		<param name="frame_id" value="map" />
 		<param name="sensor_model/max_range" value="7.0" />
 		<param name="latch" value="false" />
-		<remap from="cloud_in" to="rgbd_camera/rgbd_camera/depth/points" />
+		<remap from="cloud_in" to="/rgbd_camera/depth/points" />
 	</node>
-	
 </launch>
 

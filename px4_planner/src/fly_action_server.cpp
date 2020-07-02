@@ -68,10 +68,8 @@ void PathFollower::push_traj( nav_msgs::Path path, float maxvel, float current_y
 	}		
 	path_kdl->Finish();
 	
-//	if(trap)
-		KDL::VelocityProfile* velpref = new KDL::VelocityProfile_Trap(maxvel,0.5); //trap_max_vel trap_max_acc
-//	else
-//		KDL::VelocityProfile* velpref = new KDL::VelocityProfile_Rectangular(maxvel); 
+//		KDL::VelocityProfile* velpref = new KDL::VelocityProfile_Trap(maxvel,0.5); //trap_max_vel trap_max_acc
+		KDL::VelocityProfile* velpref = new KDL::VelocityProfile_Rectangular(maxvel); 
 
 //	KDL::VelocityProfile* velpref = new KDL::VelocityProfile_Spline();
 //	velpref->SetProfileDuration(0, maxvel/5, path_kdl->PathLength(), maxvel/5, path_kdl->PathLength()/maxvel);
@@ -189,7 +187,11 @@ Eigen::Vector4d PathFollower::compute_speed_command(Eigen::Vector4d curr_pose){
 			}
 			
 			//publish topic for rviz DEBUG
-			publishing_rviz_topic(curr_pose, des_pos, des_yaw, speed_command);
+			Eigen::Vector3d lin_vel;
+			lin_vel(0) = speed_command(0); 
+			lin_vel(1) = speed_command(1);
+			lin_vel(2) = speed_command(2);
+			publishing_rviz_topic(curr_pose, des_pos, des_yaw, lin_vel);
 
 
 			return speed_command;		
@@ -197,7 +199,20 @@ Eigen::Vector4d PathFollower::compute_speed_command(Eigen::Vector4d curr_pose){
 		
 }
 
-void PathFollower::publishing_rviz_topic(Eigen::Vector4d curr_pose, Eigen::Vector3d des_pos, double des_yaw, Eigen::Vector4d speed_command){
+
+bool PathFollower::check_disaster(Eigen::Vector4d curr_pose){
+	if(!_traject_queue.empty())
+		if(  fabs(_traject_queue.front()->Pos(_time_current_traj).p.x() - curr_pose(0) > FAULT_THRESHOLD)
+			|| fabs(_traject_queue.front()->Pos(_time_current_traj).p.y() - curr_pose(1) > FAULT_THRESHOLD)
+			|| fabs(_traject_queue.front()->Pos(_time_current_traj).p.z() - curr_pose(2) > FAULT_THRESHOLD))
+	  	return true;
+	return false;
+}
+
+void PathFollower::publishing_rviz_topic(const Eigen::Vector4d& curr_pose, 
+																				 const Eigen::Vector3d& des_pos, 
+																				 double des_yaw,
+																				 const Eigen::Vector3d& lin_vel){
 
 			// publishing desired pose of the uav
 			geometry_msgs::PoseStamped des_pose;
@@ -236,9 +251,9 @@ void PathFollower::publishing_rviz_topic(Eigen::Vector4d curr_pose, Eigen::Vecto
 			tail.y = 0;
 			tail.z = 0;
 			marker.points.push_back(tail);
-			head.x = speed_command(0);
-			head.y = speed_command(1);
-			head.z = speed_command(2);
+			head.x = lin_vel(0);
+			head.y = lin_vel(1);
+			head.z = lin_vel(2);
 			marker.points.push_back(head);
 			
 			// Set the scale of the marker -- 1x1x1 here means 1m on a side
@@ -320,9 +335,8 @@ void FlyAction::initialize_server(){
 }
 
 void FlyAction::initialize_path_follower(){
-
-
 	_local_pose.setZero();
+	
 	//get PID parameters
 	float Kp_pos = 0.0; 
 	float Ki_pos = 0.0;
@@ -351,30 +365,32 @@ void FlyAction::initialize_path_follower(){
 	_nh.getParam("/fly_action_server/PID_u_max_yaw", u_max_yaw);
 	_nh.getParam("/fly_action_server/PID_u_min_yaw", u_min_yaw);
 
-
- //set publisher for rviz
-	_path_follower.set_rviz_publisher(_des_pose_pub, _marker_velocity_pub);
-
-//		set PID parameters for QR code landing 
 	_path_follower.set_gains_pos(Kp_pos, Ki_pos, Kd1_pos, Kd2_pos);
 	_path_follower.set_gains_yaw(Kp_yaw, Ki_yaw, Kd1_yaw, Kd2_yaw);
 	_path_follower.set_bounds_pos(u_min_pos, u_max_pos);
 	_path_follower.set_bounds_yaw(u_min_yaw, u_max_yaw);
-	float Kp_qr = 0.0; 
-	float Ki_qr = 0.0;
-	float Kd1_qr = 0.0;
-	float Kd2_qr = 0.0;
-	float u_max_qr = 0.0;
-	float u_min_qr = 0.0; 	
-	_nh.getParam("/fly_action_server/Kp_qr", Kp_qr);
-	_nh.getParam("/fly_action_server/Ki_qr", Ki_qr);
-	_nh.getParam("/fly_action_server/Kd1_qr", Kd1_qr);
-	_nh.getParam("/fly_action_server/Kd2_qr", Kd2_qr);
-	_nh.getParam("/fly_action_server/PID_u_max_qr", u_max_qr);
-	_nh.getParam("/fly_action_server/PID_u_min_qr", u_min_qr);	
+
+
+ //set publisher for rviz
+	_path_follower.set_rviz_publisher(_des_pose_pub, _marker_velocity_pub);
+
+
+//		set PID parameters for landing 
+	float Kp_land = 0.0; 
+	float Ki_land = 0.0;
+	float Kd1_land = 0.0;
+	float Kd2_land = 0.0;
+	float u_max_land = 0.0;
+	float u_min_land = 0.0; 	
+	_nh.getParam("/fly_action_server/Kp_land", Kp_land);
+	_nh.getParam("/fly_action_server/Ki_land", Ki_land);
+	_nh.getParam("/fly_action_server/Kd1_land", Kd1_land);
+	_nh.getParam("/fly_action_server/Kd2_land", Kd2_land);
+	_nh.getParam("/fly_action_server/PID_u_max_land", u_max_land);
+	_nh.getParam("/fly_action_server/PID_u_min_land", u_min_land);	
 	
-	_pid_land.set_gains(Kp_qr, Ki_qr, Kd1_qr, Kd2_qr);
-	_pid_land.set_bounds(u_min_qr, u_max_qr);	
+	_pid_land.set_gains(Kp_land, Ki_land, Kd1_land, Kd2_land);
+	_pid_land.set_bounds(u_min_land, u_max_land);	
 }
 
 
@@ -456,10 +472,18 @@ void FlyAction::px4_cntrl(){
 					des_pos.pose.position.y = _local_pose(1);
 					des_pos.pose.position.z = _local_pose(2);				
 //				}
-				
+				float hoovering_time = 0;
 				while(!_new_goal_available){
+					hoovering_time += 1/10;
 					_local_pos_pub.publish(des_pos);
 					r.sleep();
+					if(hoovering_time > 10){
+						disarmed = true;
+						std::cout<<RED<<"No goal from action client, landing and disarm!"<<RESET<<std::endl;
+						mavros_msgs::CommandTOL land_srv;
+						_land_client.call( land_srv );
+					}
+					
 				}
 			}
 			else{ //i.e. uav landed and waiting goal 
@@ -493,17 +517,22 @@ void FlyAction::px4_cntrl(){
 						_as.setAborted(_result);
 					}
 					else{
-						des_pos.pose.position.x = _local_pose(0); 
-						des_pos.pose.position.y = _local_pose(1);
+						int numDigits = 3;  
+						des_pos.pose.position.x = roundf(_local_pose(0) * powf(10, numDigits)) / powf(10, numDigits); 
+						des_pos.pose.position.y = roundf(_local_pose(1) * powf(10, numDigits)) / powf(10, numDigits);
 						des_pos.pose.position.z = goal.path.poses[0].pose.position.z;					
-
+						std::cout<<"Takeoff setpoint: "<<des_pos.pose.position.x<<"\t"
+																			     <<des_pos.pose.position.y<<"\t"
+																					 <<des_pos.pose.position.z<<std::endl;
 						arm_and_set_mode(des_pos);
+						
 						_feedback.progress = 0;
 						_as.publishFeedback(_feedback);
 						float error = fabs(des_pos.pose.position.z - _local_pose(2));
 
-						while( ros::ok() && (!_preempt_request) && !( error < 0.05 )) {
-							error = fabs(des_pos.pose.position.z - _local_pose(2));
+						while( ros::ok() 
+								&& (!_preempt_request) 
+								&& !( fabs((des_pos.pose.position.z - _local_pose(2))/des_pos.pose.position.z) < 0.9 )) {
 							_local_pos_pub.publish(des_pos);
 							_feedback.progress = (int)(100*_local_pose(2)/des_pos.pose.position.z);
 							_as.publishFeedback(_feedback);
@@ -512,6 +541,39 @@ void FlyAction::px4_cntrl(){
 	//						ROS_INFO("Feedback: %d", _feedback.progress);
 							r.sleep();
 						}
+							
+					
+						geometry_msgs::TwistStamped cmd_vel;
+						Eigen::Vector3d cmd_vel_PID;
+						Eigen::Vector3d land_pos;
+						land_pos(0) = des_pos.pose.position.x;
+						land_pos(1) = des_pos.pose.position.y;
+						land_pos(2) = des_pos.pose.position.z;
+						float initial_yaw = _local_pose(3);
+						while( ros::ok() 
+									&& (!_preempt_request)
+							    && !(fabs(des_pos.pose.position.z - _local_pose(2)) < 0.05 ) )
+					  {
+					  			std::cout<<"error: "<<(fabs(des_pos.pose.position.z - _local_pose(2)) < 0.03) <<std::endl;			
+					  			Eigen::Vector3d local_pos;
+					  			local_pos(0) = _local_pose(0);
+					  			local_pos(1) = _local_pose(1);
+					  			local_pos(2) = _local_pose(2);
+
+									cmd_vel_PID = _pid_land.ctrl_loop_PID(land_pos-local_pos);
+									cmd_vel.twist.linear.x = cmd_vel_PID(0);
+									cmd_vel.twist.linear.y = cmd_vel_PID(1);
+									cmd_vel.twist.linear.z = cmd_vel_PID(2);
+
+									//publishing for rviz visualization
+									_path_follower.publishing_rviz_topic( _local_pose, land_pos, initial_yaw, cmd_vel_PID);
+//									ROS_INFO("freq check");
+	//							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
+									_local_vel_pub.publish(cmd_vel);							
+									std::cout<<"Error PID: "<<land_pos-local_pos<<std::endl;
+									r.sleep();
+						}
+						
 						if(_preempt_request){
 							_preempt_request = false;
 							ROS_INFO("Takeoff has been preempted");
@@ -523,7 +585,9 @@ void FlyAction::px4_cntrl(){
 					    _result.result = true;
 					    _as.setSucceeded(_result);
 	//					}
+					
 					}
+					
 					break;			
 				}// end FlyGoal::TAKEOFF
 				case px4_planner::FlyGoal::LAND: //used mostly to land at home
@@ -544,7 +608,7 @@ void FlyAction::px4_cntrl(){
 						land_pos(0) = des_pos.pose.position.x;
 						land_pos(1) = des_pos.pose.position.y;
 						land_pos(2) = des_pos.pose.position.z;
-						
+						float initial_yaw = _local_pose(3);
 						while( ros::ok() 
 									&& (!_preempt_request)
 							    && (!(fabs(land_pos(0) - _local_pose(0)) < 0.03 )
@@ -559,20 +623,24 @@ void FlyAction::px4_cntrl(){
 									cmd_vel.twist.linear.x = cmd_vel_PID(0);
 									cmd_vel.twist.linear.y = cmd_vel_PID(1);
 									cmd_vel.twist.linear.z = cmd_vel_PID(2);
+									
+									//publishing for rviz visualization
+									_path_follower.publishing_rviz_topic( _local_pose, land_pos, initial_yaw, cmd_vel_PID);
+									
+									
 //									ROS_INFO("freq check");
 	//							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
 									_local_vel_pub.publish(cmd_vel);							
 									std::cout<<"Error PID: "<<land_pos-local_pos<<std::endl;
 							r.sleep();
 						}
-						
-						
-						disarmed = true;
-				    ROS_INFO("%s: Succeeded", _action_name.c_str());
-				    _result.result = true;
-				    _as.setSucceeded(_result);
 						mavros_msgs::CommandTOL land_srv;
 						_land_client.call( land_srv );
+						while(ros::ok() && _mstate.armed);
+						disarmed = true;
+						ROS_INFO("%s: Succeeded", _action_name.c_str());
+				    _result.result = true;
+				    _as.setSucceeded(_result);
 					} 
 					break;
 				}// end FlyGoal::LAND 
@@ -598,7 +666,7 @@ void FlyAction::px4_cntrl(){
 						Eigen::Vector3d qr_land_pos;
 						_pid_land.reset_PID();
 						bool first_msg_arrived = false;	
-		
+						float initial_yaw = _local_pose(3);		
 					  while( ros::ok() 
 									&& (!_preempt_request)
 									&&  !first_msg_arrived)
@@ -612,6 +680,10 @@ void FlyAction::px4_cntrl(){
 							cmd_vel.twist.linear.x = cmd_vel_PID(0);
 							cmd_vel.twist.linear.y = cmd_vel_PID(1);
 							cmd_vel.twist.linear.z = cmd_vel_PID(2);
+							
+							//publishing for rviz visualization 							
+							_path_follower.publishing_rviz_topic( _local_pose, initial_pos, initial_yaw, cmd_vel_PID);
+
 //							ROS_INFO("freq check");
 //							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
 							_local_vel_pub.publish(cmd_vel);							
@@ -650,6 +722,11 @@ void FlyAction::px4_cntrl(){
 							cmd_vel.twist.linear.x = cmd_vel_PID(0);
 							cmd_vel.twist.linear.y = cmd_vel_PID(1);
 							cmd_vel.twist.linear.z = cmd_vel_PID(2);
+							
+							//publishing for rviz visualization 							
+							_path_follower.publishing_rviz_topic( _local_pose, initial_pos, initial_yaw, cmd_vel_PID);
+
+
 //							ROS_INFO("freq check");
 //							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
 							_local_vel_pub.publish(cmd_vel);							
@@ -664,12 +741,14 @@ void FlyAction::px4_cntrl(){
 							_as.setPreempted();
 						}
 						else{
+							mavros_msgs::CommandTOL land_srv;
+							_land_client.call( land_srv );
+							while(ros::ok() && _mstate.armed);
+							disarmed = true;
 							ROS_INFO("%s: Succeeded", _action_name.c_str());
 							_result.result = true;
 							_as.setSucceeded(_result);
-							mavros_msgs::CommandTOL land_srv;
-							_land_client.call( land_srv );
-							disarmed = true;
+							
 					  }			
 					}
 					break;
@@ -683,14 +762,16 @@ void FlyAction::px4_cntrl(){
 						_as.setAborted(_result);
 					}
 					else{
-						std::cout<<"px4_cntrl(): Following the path action"<<std::endl;
-						_path_follower.push_traj(goal.path, goal.path_vel, _local_pose(3));
-						std::cout<<"px4_cntrl(): Received new checkpoint of the path, total number of checkpoint: "<<_path_follower.traj_queue_size()<<std::endl;
+						ROS_INFO("px4_cntrl(): Following the path action, path velocity: %f", goal.path_vel);
 						for(int i=0;i<goal.path.poses.size();i++){
 						ROS_INFO("Goal checkpoint path received  ( %f , %f , %f )", goal.path.poses[i].pose.position.x,
 																																				goal.path.poses[i].pose.position.y,
 																																				goal.path.poses[i].pose.position.z);
+																																				
 						}
+						_path_follower.push_traj(goal.path, goal.path_vel, _local_pose(3));
+						std::cout<<"px4_cntrl(): Received new checkpoint of the path, total number of checkpoint: "<<_path_follower.traj_queue_size()<<std::endl;
+						
 						int initial_size = _path_follower.traj_queue_size();
 						if(initial_size > 1) //if initial_size = 1 set immediately goal succeded
 							while(ros::ok() 
@@ -789,7 +870,7 @@ void FlyAction::px4_PIDloop(){
 		std::cout<<BOLDBLUE<<"px4_PIDloop(): Start following path"<<RESET<<std::endl;
 		
 //		_last_position_path_avaiable = false;
-		while( !_path_follower.check_queue_empty() ) {
+		while( !_path_follower.check_queue_empty() && !_path_follower.check_disaster(_local_pose) ) {
 		
 			cmd_vel_PID = _path_follower.compute_speed_command(_local_pose);
 			cmd_vel.twist.linear.x = cmd_vel_PID(0);
@@ -815,6 +896,13 @@ void FlyAction::px4_PIDloop(){
 		_now_path_following = false;
 		//at the next path we start with resetted integrator
 //		_path_follower.reset_PIDs_state(); 
+		if(_path_follower.check_disaster(_local_pose)){
+			disarmed = true;
+			std::cout<<RED<<"Error too much bigger! Landing and disarm"<<RESET<<std::endl;
+			mavros_msgs::CommandTOL land_srv;
+			_land_client.call( land_srv );
+		}
+		
 		r.sleep();
 	}
 }

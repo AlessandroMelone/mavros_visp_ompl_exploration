@@ -124,7 +124,7 @@ bool ROS_SUB::activate_service_cb(qr_detector_pkg::activate_service::Request &re
 		_topic_sub_qrData.shutdown();
 		_publisher_detected_QRcode.shutdown();
 		publisher_qr_position.shutdown();
-		cout<<"--- qr detector service activated---"<<endl;
+		cout<<"--- qr detector service shutdown---"<<endl;
 		res.activated = false;
 	}
 	return true;
