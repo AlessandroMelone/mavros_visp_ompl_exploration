@@ -34,12 +34,14 @@ class MASTER {
 		void master_menu();
 
 		bool exploration_phase();
-		bool landOn_QRcode(float x, float y, int qr_code);
-		void num_qr_code_cb(const std_msgs::Int32& data);
+		bool exploration_phase2();
+		bool landOnQRcode(float x, float y, int qr_code);
+		bool landOnPoint(float x, float y);
+		bool hoveringOnPoint(float x, float y);
 		void compute_waypoints(const float& , const float& , const float& , const float&);
 		void print_waypoints();
 		void topic_cb_detectedQRcode(std_msgs::Int32 data);
-		bool landOn_Point(float x, float y);
+		std::string get_this_input();
 
 	private:
 		ros::NodeHandle _nh;
@@ -52,19 +54,15 @@ class MASTER {
 
 		bool _exploration_completed = false;
 		bool _abort_request = false;
-		bool _abortable = false;
 		Eigen::VectorXd _x_waypoints;
 		Eigen::VectorXd _y_waypoints;
 		int qr_detected_mask = 0;
+		int qr_code_finded = 0;
 		std::string inputString = "";
+		bool _new_key_input = 0;
+		bool _need_input = false;
 };
 
-
-
-/*
-servizio abort chiamato nel menu
-o chiamato quando letti tutti i qr code
-*/
 
 MASTER::MASTER() {
 
@@ -82,73 +80,101 @@ MASTER::MASTER() {
 }
 
 void MASTER::topic_cb_detectedQRcode(std_msgs::Int32 data) {
-	qr_detected_mask = data.data;
-}
+	int new_qr_detected_mask = data.data;
 
+	if(qr_detected_mask != new_qr_detected_mask){
+		cout<<"New QR code"<<endl;
+		int new_qr_code_mask = qr_detected_mask ^ new_qr_detected_mask; //XOR
+		cout<<"new_qr_code_mask: "<<new_qr_code_mask<<endl;
+		for (int qr_code=1; qr_code <= NUM_QRCODE; qr_code++) {
+			cout<<"new_qr_code_mask & int(pow(2,qr_code-1): "<<int(new_qr_code_mask & int(pow(2,qr_code-1)))<<endl;
+			if (new_qr_code_mask & int(pow(2,qr_code-1)) != 0) {
+				cout<<"Number new QR code detected: "<<qr_code<<endl;
+				qr_code_finded++;
+			}
+		}
+		qr_detected_mask = new_qr_detected_mask;
+	}
+
+}
 
 void MASTER::key_input(){
 	ros::Rate r(2);
 	while (ros::ok()) {
-		std::getline(cin, inputString);
-		if(inputString == "0")
-			_abort_request = true;
+		if (_need_input) {
+			std::getline(cin, inputString);
+			_new_key_input = true;
+			_need_input = false;
+		}
 		r.sleep();
 	}
 }
 
-void MASTER::master_menu(){
+std::string MASTER::get_this_input(){
+	ros::Rate r(2);
+	_need_input = true;
+	while (ros::ok() && !_new_key_input) {
+		r.sleep();
+	}
+	_new_key_input = false;
+	return inputString;
 
+}
+
+void MASTER::master_menu(){
+	ros::Rate r(10);
 	while (ros::ok() && (inputString != "0")) {
 		//qr_detector_pkg::activate_service srv; srv.request.activate = true; _client_qrdetector.call(srv); _client_qrfilter.call(srv);
 		cout<<endl<<"Here, a list of the possible actions: "<<endl;
 		cout<<"\t 1. Start exploring action"<<endl;
-		cout<<"\t 2. Show the QR code obtained positions"<<endl;
-		cout<<"\t 3. Reach a QR code sequence. Their position is taken by the server."<<endl;
-		cout<<"\t 4. Start exploring action (no QR code detection)"<<endl;
-		cout<<"\t 5. Activate qr detection"<<endl;
+		cout<<"\t 2. Start exploring action (no QR code detection)"<<endl;
+		cout<<"\t 3. Show the QR code obtained positions"<<endl;
+		cout<<"\t 4. Go on point. Its position is given by the user."<<endl;
+		cout<<"\t 5. Land on point. Its position is given by the user."<<endl;
 		cout<<"\t 6. Reach a QR code. Its position is given by the user."<<endl;
-		cout<<"\t 7. Land on point. Its position is given by the user."<<endl;
+		cout<<"\t 7. Reach a QR code sequence. The list is given by the user."<<endl;
 		cout<<"\t 8. Reach the QR code TEST sequence"<<endl;
+		cout<<"\t 9. Activate QR service"<<endl;
 		cout<<"\t 0. Exit"<<endl;
-		cout<<"-----------------> Make your choice: ";
-		std::getline(cin, inputString);
-		cout<<endl;
+		cout<<"-----------------> Make your choice: "<<endl;
 
 
-		if (inputString=="1") { //Start exploring action
+		std::string menuChoice = get_this_input();
+
+		if (menuChoice=="1") { //Start exploring action
 			qr_detector_pkg::activate_service srv;
 			srv.request.activate = true;
 			if (_client_qrdetector.call(srv)) {
 				cout<<"QR detector correctly activated."<<endl;
-				cout<<"---> Press 0 to stop the exploration. "<<endl;
-				_abortable = true;
-				if(!exploration_phase()) {
-					cout<<"--> Exploration has failed. "<<endl<<endl;
-				}
+				if(exploration_phase()) { cout<<"--> Exploration correctly completed. "<<endl<<endl;}
+				else { cout<<"--> Exploration has failed. "<<endl<<endl; }
 				srv.request.activate = false;
 				_client_qrdetector.call(srv);
 			}
 			else { 	cout<<"Failed to activate the QR detector."<<endl; 	}
 		}
-
-		else if (inputString=="2") { //Show the QR code obtained positions
-			qr_detector_pkg::qr_position_service srv;
-			geometry_msgs::Point point;
-			for (int qr_code=1; qr_code <= NUM_QRCODE; qr_code++) {
-				if ((qr_detected_mask & int(pow(2,qr_code-1))) != 0) {
-					srv.request.qr_code = qr_code;
-					if (_client_qrPosition.call(srv)) {
-						point = srv.response.qr_position;
-						cout<<"--- QR code : "<<qr_code;
-						cout<<"-------> x: "<<point.x<<" ,  y: "<<point.y<<" ,  z:  "<<point.z<<endl;
+		else if (menuChoice=="3") { //Show the QR code obtained positions
+			qr_detector_pkg::activate_service srv_activate;
+			srv_activate.request.activate = true;
+			if (_client_qrdetector.call(srv_activate)) {
+				qr_detector_pkg::qr_position_service srv;
+				geometry_msgs::Point point;
+				for (int qr_code=1; qr_code <= NUM_QRCODE; qr_code++) {
+					if ((qr_detected_mask & int(pow(2,qr_code-1))) != 0) {
+						srv.request.qr_code = qr_code;
+						if (_client_qrPosition.call(srv)) {
+							point = srv.response.qr_position;
+							cout<<"--- QR code : "<<qr_code;
+							cout<<"-------> x: "<<point.x<<" ,  y: "<<point.y<<" ,  z:  "<<point.z<<endl;
+						}
+						else {	cout<<"Failed to call qr_position_service"<<endl;		}
 					}
-					else {	cout<<"Failed to call qr_position_service"<<endl;		}
+					else cout<<"QR code "<<qr_code<<" has not been detected yet."<<endl;
 				}
-				else cout<<"QR code "<<qr_code<<" has not been detected yet."<<endl;
 			}
+			else { 	cout<<"Failed to activate the QR detector."<<endl; 	}
 		}
-
-		else if (inputString=="3") {
+		else if (menuChoice=="7") {
 			qr_detector_pkg::activate_service srv_activate;
 			srv_activate.request.activate = true;
 			if (_client_qrdetector.call(srv_activate)) {
@@ -156,9 +182,10 @@ void MASTER::master_menu(){
 				qr_detector_pkg::qr_position_service srv;
 				geometry_msgs::Point point;
 				cout<<"Write down here the QR code sequence you want to nagivate"<<endl; 	cout<<"\t\t Example: 2 1 3 4"<<endl;
-				cout<<"Qr code sequence: "; std::getline(cin, inputString);	cout<<endl;
+				cout<<"Qr code sequence: ";
+				std::string qr_code_sequence_str = get_this_input();
 				std::vector<std::string> qr_code_sequence;
-				boost::split(qr_code_sequence, inputString, [](char c) {return c==' ';});
+				boost::split(qr_code_sequence, qr_code_sequence_str, [](char c) {return c==' ';});
 
 				for (int i=0; i<qr_code_sequence.size(); i++){
 					int qr_code = atoi(qr_code_sequence[i].c_str());
@@ -172,25 +199,21 @@ void MASTER::master_menu(){
 						else {
 							cout<<"Failed to call qr_position_service"<<endl;
 						}
-						landOn_QRcode(point.x, point.y, qr_code);
+						landOnQRcode(point.x, point.y, qr_code);
 						ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
 					}
-					else cout<<"QR code "<<qr_code<<" has not been detected yet, please start again the exploration phase"<<endl;
+					else cout<<"QR code "<<qr_code<<" has not been detected yet, it will be skipped"<<endl;
 				}
 				srv_activate.request.activate = false;
-				_client_qrdetector.call(srv);
-			}	
-		}
-
-		else if (inputString=="4") { //Start exploring action
-			cout<<"---> Press 0 to stop the exploration. "<<endl;
-			_abortable = true;
-			if(!exploration_phase()) {
-				cout<<"--> Exploration has failed. "<<endl<<endl;
+				_client_qrdetector.call(srv_activate);
 			}
+			else { 	cout<<"Failed to activate the QR detector."<<endl; 	}
 		}
-
-		else if (inputString=="5") {
+		else if (menuChoice=="2") { //Start exploring action
+			if(exploration_phase()) { cout<<"--> Exploration correctly completed. "<<endl<<endl;}
+			else { cout<<"--> Exploration has failed. "<<endl<<endl; }
+		}
+		else if (menuChoice=="9") {
 			qr_detector_pkg::activate_service srv;
 			srv.request.activate = true;
 			if (_client_qrdetector.call(srv)) {
@@ -198,47 +221,47 @@ void MASTER::master_menu(){
 			}
 			else { 	cout<<"Failed to activate the QR detector."<<endl; 	}
 		}
-
-		else if (inputString=="6") {
+		else if (menuChoice=="6") {
 			qr_detector_pkg::activate_service srv;
 			srv.request.activate = true;
 			if (_client_qrdetector.call(srv)) {
 				cout<<"QR detector correctly activated."<<endl;
-				cout<<"Write here the the QR code: "; 	std::getline(cin, inputString);
-				int qr_code = stoi(inputString);
-				cout<<"\t x coordinate (map frame) (example 6.12): "; 	std::getline(cin, inputString);
-				float x_cord = stof(inputString);
-				cout<<"\t y coordinate (map frame): "; 	std::getline(cin, inputString);
-				float y_cord = stof(inputString);
-				landOn_QRcode(x_cord, y_cord, qr_code);
+				cout<<"Write here the the QR code: ";
+				int qr_code = stof(get_this_input());
+				cout<<"\t x coordinate (map frame) (example 6.12): ";
+				float x_cord = stof(get_this_input());
+				cout<<"\t y coordinate (map frame): ";
+				float y_cord = stof(get_this_input());
+				landOnQRcode(x_cord, y_cord, qr_code);
 				srv.request.activate = false;
 				_client_qrdetector.call(srv);
 			}
 			else { 	cout<<"Failed to activate the QR detector."<<endl; 	}
 		}
-		else if (inputString=="7") {
-			cout<<"\t x coordinate (map frame) (example 6.12): "; 	std::getline(cin, inputString);
-			float x_cord = stof(inputString);
-			cout<<"\t y coordinate (map frame): "; 	std::getline(cin, inputString);
-			float y_cord = stof(inputString);
-			cout<<"\t land_mask: "; 	std::getline(cin, inputString);
-			float land_mask = stof(inputString);
-			if(land_mask == 2)
-			cout<<"\t qr_code: "; 	std::getline(cin, inputString);
-			int qr_code = (int)stof(inputString);
-			landOn_Point(x_cord, y_cord);
+		else if (menuChoice=="5") {
+			cout<<"\t x coordinate (map frame) (example 6.12): ";
+			float x_cord = stof(get_this_input());
+			cout<<"\t y coordinate (map frame): ";
+			float y_cord = stof(get_this_input());
+			landOnPoint(x_cord, y_cord);
 		}
-
-		else if (inputString=="8") {
-				landOn_QRcode(2.27077, 0.483215, 4);
+		else if (menuChoice=="4") {
+			cout<<"\t x coordinate (map frame) (example 6.12): ";
+			float x_cord = stof(get_this_input());
+			cout<<"\t y coordinate (map frame): ";
+			float y_cord = stof(get_this_input());
+			hoveringOnPoint(x_cord, y_cord);
+		}
+		else if (menuChoice=="8") {
+				landOnQRcode(2.27077, 0.483215, 4);
 				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-				landOn_QRcode(7.84261, 8.01971, 5);
+				landOnQRcode(7.84261, 8.01971, 5);
 				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-				landOn_QRcode(13.8426, 3.45998, 6);
+				landOnQRcode(13.8426, 3.45998, 6);
 				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-				landOn_QRcode(4.39203, 2.51232, 1);
+				landOnQRcode(4.39203, 2.51232, 1);
 				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-				landOn_QRcode(5.03641, 8.14686, 2);		
+				landOnQRcode(5.03641, 8.14686, 2);
 				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
 		}
 	}
@@ -257,55 +280,58 @@ bool MASTER::exploration_phase(){
 	_nh.getParam("/master_exe/lenght_y", lenght_y);
 	_nh.getParam("/master_exe/size_uav", size_uav);
 	compute_waypoints(lenght_stride, lenght_x, lenght_y, size_uav);
+
 	print_waypoints();
+
+	cout<<"------> Type 's' to stop the exploration. "<<endl<<endl;
+	_need_input = true;
 
 	ros::Rate r(2);
 
-	int current_waypoint = 1;
+	int current_waypoint = 0;
 	px4_planner::planner_commander_service req;
 	req.request.qr_code = -1;
 
-	while(ros::ok() && !_abort_request && (current_waypoint <= _x_waypoints.size())){
-		if (_abort_request)
-			return false;
+	while(ros::ok()){
+		if (_new_key_input){
+			_new_key_input = false;
+			if (inputString=="s") {
+				cout<<"Key input abort, exploration stopped. Going back to the base..."<<endl;
+				landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
+				return false;
+			}
+		}
+
+
+		if(qr_code_finded >= NUM_QRCODE){
+			cout<<"All QR code finded! Going back to the base..."<<endl;
+			landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
+			return true;
+		}
 
 		if (current_waypoint == _x_waypoints.size()) {		//way points are finished, come back to the start position and land
-			req.request.x = STARTING_POSITION_X;	
-			req.request.y = STARTING_POSITION_Y;
-			//req.land_mask = px4_planner::planner_commander_service::LAND;
-			req.request.land_mask = 1;
+			cout<<"Waypoints terminated. Going back to the base..."<<endl;
+			landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
 		}
 		else {
-			req.request.x = _x_waypoints[current_waypoint];
-			req.request.y = _y_waypoints[current_waypoint];
-			//req.land_mask = px4_planner::planner_commander_service::NO_LAND;
-			req.request.land_mask = 0;
+			hoveringOnPoint(_x_waypoints[current_waypoint], _y_waypoints[current_waypoint]);
 		}
 
-		cout<<"Sending waypoint ("<<req.request.x<<", "<<req.request.y<<")"<<"\t Land mask: "<<unsigned(req.request.land_mask)<<"\t qr code: "<<req.request.qr_code<<endl;
-		if (_client_planner.call(req)){
-			cout<<"Waypoint correctly sended to planner"<<endl;;
-			if(req.response.completed){
-				cout<<"Waypoint correctly reached"<<endl<<endl;
-				current_waypoint++;
-			}
-			else { 	ROS_INFO("Planner can't reach waypoint");	return false;  	}
-		}
-		else {	ROS_INFO("Not possible to connect with planner");		return false; }
 
+		current_waypoint++;
 		r.sleep();
 	}
 	return !_abort_request; 		//return true if the exploration was not aborted, false otherwise
 }
 
-bool MASTER::landOn_QRcode(float x, float y, int qr_code){
+bool MASTER::landOnQRcode(float x, float y, int qr_code){
 	px4_planner::planner_commander_service req;
 	req.request.x = x;	req.request.y = y;	req.request.qr_code = qr_code;	req.request.land_mask = 2;
-					
+
 	//req.request.land_mask = px4_planner_node::planner_commander_service::QR_CODE_LAND;
 
+	cout<<"Sending the mission to land on the QR code "<<qr_code<<" on ("<<x<<" "<<y<<")"<<endl;
 	if (_client_planner.call(req)){
-		cout<<"Mission correctly sended to planner"<<endl;;
 		if(req.response.completed){
 			cout<<"Mission correctly completed"<<endl<<endl;
 		}
@@ -321,16 +347,15 @@ bool MASTER::landOn_QRcode(float x, float y, int qr_code){
 	return true;
 }
 
-bool MASTER::landOn_Point(float x, float y){
+bool MASTER::landOnPoint(float x, float y){
 	px4_planner::planner_commander_service req;
-	req.request.x = x;	
-	req.request.y = y;	
-	req.request.qr_code = -1;	
+	req.request.x = x;
+	req.request.y = y;
+	req.request.qr_code = -1;
 	req.request.land_mask = 1;
-			
-	cout<<"QR code: "<<req.request.land_mask<<endl;
+
+	cout<<"Sending the mission to land on the point ("<<x<<" "<<y<<")"<<endl;
 	if (_client_planner.call(req)){
-		cout<<"Mission correctly sended to planner"<<endl;;
 		if(req.response.completed){
 			cout<<"Mission correctly completed"<<endl<<endl;
 		}
@@ -346,12 +371,28 @@ bool MASTER::landOn_Point(float x, float y){
 	return true;
 }
 
+bool MASTER::hoveringOnPoint(float x, float y){
+	px4_planner::planner_commander_service req;
+	req.request.x = x;
+	req.request.y = y;
+	req.request.qr_code = -1;
+	req.request.land_mask = 0;
 
-void MASTER::num_qr_code_cb(const std_msgs::Int32& data) {
-	int num_qr_code_finded = data.data;
-	ROS_INFO("New QR code finded! Total number QR code: %d",data.data);
-	if(num_qr_code_finded > num_qr_code_finded)
-		_exploration_completed = true;
+	cout<<"Sending the mission to reach the point ("<<x<<" "<<y<<")"<<endl;
+	if (_client_planner.call(req)){
+		if(req.response.completed){
+			cout<<"Mission correctly completed"<<endl<<endl;
+		}
+		else {
+			ROS_INFO("Planner can't complete the mission");
+			return false;
+		}
+	}
+	else {
+		ROS_INFO("Not possible to connect with planner");
+		return false;
+	}
+	return true;
 }
 
 void MASTER::compute_waypoints(const float& lenght_stride, const float& lenght_x, const float& lenght_y, const float& size_uav){
@@ -366,22 +407,21 @@ void MASTER::compute_waypoints(const float& lenght_stride, const float& lenght_x
 	}
 
 	// generation points
-  _x_waypoints.resize(n*2); 
+  _x_waypoints.resize(n*2);
 	_y_waypoints.resize(n*2);
 
 	for(int i=0; i < n; i++){
 		_x_waypoints(i*2) = lenght_stride/2;
-		_x_waypoints(i*2+1) = lenght_x - lenght_stride/2; 
+		_x_waypoints(i*2+1) = lenght_x - lenght_stride/2;
 		_y_waypoints(i*2+1) = _y_waypoints(i*2) = lenght_stride/2 + i*lenght_stride;
-		cout<<"_y_waypoints "<<i<<_y_waypoints(i*2)<<endl;
 	}
 
 
   //set waypoints to be sure to perlustrate all the box
   if(n != lenght_y/lenght_stride){
- 	  _x_waypoints.resize(n*2+2); 
+ 	  _x_waypoints.resize(n*2+2);
 		_y_waypoints.resize(n*2+2);
-	
+
 		_x_waypoints(n*2) = lenght_stride/2;
 		_x_waypoints(n*2+1) = lenght_x - lenght_stride/2;
 
@@ -389,7 +429,7 @@ void MASTER::compute_waypoints(const float& lenght_stride, const float& lenght_x
 	}
 
 	int j = 2;
-	while(j < _x_waypoints.size()){ 
+	while(j < _x_waypoints.size()){
 		double x_swap,y_swap;
 		x_swap = _x_waypoints(j);
 		y_swap = _y_waypoints(j);
@@ -411,7 +451,6 @@ void MASTER::compute_waypoints(const float& lenght_stride, const float& lenght_x
 
 }
 
-
 void MASTER::print_waypoints(){
 	std::cout<<endl<<"-----> These are the waypoints: "<<endl;
 	for(int i=0;i<_x_waypoints.size();i++){
@@ -422,7 +461,7 @@ void MASTER::print_waypoints(){
 }
 
 void MASTER::run() {
-	//boost::thread key_input_t( &MASTER::key_input, this );
+	boost::thread key_input_t( &MASTER::key_input, this );
 	boost::thread master_menu_t( &MASTER::master_menu, this );
 	ros::spin();
 }
@@ -433,9 +472,5 @@ int main( int argc, char** argv ) {
 	ros::init(argc, argv, "master_node");
 	MASTER master;
 	master.run();
-	return 0;
-
-
-
 	return 0;
 }
