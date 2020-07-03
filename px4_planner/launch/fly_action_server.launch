@@ -1,7 +1,6 @@
 <?xml version="1.0" ?>
 <launch>
-  <!-- these are the arguments you can pass this launch file-->
-	
+	<arg name="output" default="screen"/>
 <!--		pos PID parameters-->
   <arg name="Kp_pos" default="2.3"/>
   <arg name="Ki_pos" default="0.005"/>
@@ -27,7 +26,7 @@
   <arg name="PID_u_min_land" default="-300"/>
 	
 <!--output="screen" to read the ROS_INFO msg -->
-	<node name="fly_action_server" pkg="px4_planner" type="fly_action_server" output="screen" >  
+	<node name="fly_action_server" pkg="px4_planner" type="fly_action_server" output="$(arg output)" >  
 <!--		pos PID parameters-->
 		<param name="Kp_pos" value="$(arg Kp_pos)"/>
 		<param name="Ki_pos" value="$(arg Ki_pos)"/>

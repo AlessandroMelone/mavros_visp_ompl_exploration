@@ -571,7 +571,7 @@ nav_msgs::Path QuadCommanderManager::computePath_OMPLinterface() {
       if (x_f != point.x || y_f != point.y) {     //if the planned last point is not the desired final point (x_f y_f)
         right_path_computed = false;
         z_f = z_f + INCREASE_HEIGHT;
-        ROS_WARN("Failed to compute path! Taking the next checkpoint %f %f",x_f, y_f);
+        cout<<"Failed to compute path! Taking the next checkpoint:"<<x_f<<"\t"<<y_f<<endl;
       }
       else
         right_path_computed = true;
@@ -616,7 +616,7 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
       if (x_f != point.x || y_f != point.y) {     //if the planned last point is not the desired final point (x_f y_f)
         right_path_computed = false;
         z_f = z_f + INCREASE_HEIGHT;
-        ROS_WARN("Failed to compute path! Increasing z to %f \f",z_f);
+        cout<<"Failed to compute path! Increasing z to "<<z_f<<endl;
       }
       else {
         right_path_computed = true;

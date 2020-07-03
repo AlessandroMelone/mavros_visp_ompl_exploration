@@ -1,7 +1,10 @@
 #include "px4_planner/fly_action_server.h"
 
-//  PID FUNCTIONS
+/**********  PID_contr FUNCTIONS **********/
 
+/**************************************************************
+Initialize the dynamics vector used by the class
+***************************************************************/
 void PID_contr::set_size(int size){ 
 	_e_old.resize(size); 
 	_u_i.resize(size); 
@@ -14,6 +17,9 @@ void PID_contr::set_size(int size){
 	u_i_new.resize(size);
 }
 
+/**************************************************************
+Implement the control loop, need to be called with fixed frequency 
+***************************************************************/
 Eigen::VectorXd PID_contr::ctrl_loop_PID(Eigen::VectorXd e){ //e = y_des-y
 	bool update_u_i;
 	
@@ -37,16 +43,22 @@ Eigen::VectorXd PID_contr::ctrl_loop_PID(Eigen::VectorXd e){ //e = y_des-y
 		if(update_u_i) 
 			_u_i(i) = u_i_new(i);
 	}
-	
-//	std::cout<<"e: "<<std::endl<<e<<std::endl;	
-//	std::cout<<"u: "<<std::endl<<u<<std::endl;
+
 	_e_old = e;
 	return u; 
 }
 
 
-//  PATH FOLLOWER FUNCTIONS
+/**********  PathFollower FUNCTIONS **********/
 
+/**************************************************************
+param:
+- path: path which points will be reached
+- maxvel: velocity of the trajectory
+- current_yaw: initial yaw of the trajectory (no longer considered)
+
+This function will generate a trajectory considering the path and a rectangular velocity profile, and then the trajectory will be pushed in the queue  
+***************************************************************/
 void PathFollower::push_traj( nav_msgs::Path path, float maxvel, float current_yaw){ 
 
 	KDL::Path_RoundedComposite* path_kdl;
@@ -71,93 +83,56 @@ void PathFollower::push_traj( nav_msgs::Path path, float maxvel, float current_y
 //		KDL::VelocityProfile* velpref = new KDL::VelocityProfile_Trap(maxvel,0.5); //trap_max_vel trap_max_acc
 		KDL::VelocityProfile* velpref = new KDL::VelocityProfile_Rectangular(maxvel); 
 
-//	KDL::VelocityProfile* velpref = new KDL::VelocityProfile_Spline();
-//	velpref->SetProfileDuration(0, maxvel/5, path_kdl->PathLength(), maxvel/5, path_kdl->PathLength()/maxvel);
-
 	velpref->SetProfile(0, path_kdl->PathLength());  
 	_traject_queue.push(new KDL::Trajectory_Segment(path_kdl, velpref));
 	
 
 }
 
-//bool PathFollower::reaching_start_traj(Eigen::Vector4d curr_pose){
-//	if (!_new_traj) return false;
-//	if( fabs(_traject->Pos(_time_current_traj).p.x() - curr_pose(0))<0.15 &&
-//	    fabs(_traject->Pos(_time_current_traj).p.y() - curr_pose(1))<0.15 &&
-//	    fabs(_traject->Pos(_time_current_traj).p.z() - curr_pose(2))<0.15)
-//	{
-//		_new_traj = false;
-//	  return false;
-//	}
-//	else{
-//		std::cout<<"reaching start point of the path"<<std::endl;
-//		return true;
-//	}
-//	
-//}
-
-/*
-_TODO:
-if error > threeshold given by the ompl box that represent the size of the uav, the path slow down (t will reduce) in order to let the PID to reduce the error and avoid the collision of the uav with some obstacles
-*/				
 Eigen::Vector4d PathFollower::compute_speed_command(Eigen::Vector4d curr_pose){
 	Eigen::Vector4d speed_command;
 	speed_command.setZero();
 	if(!_gains_pos_setted && !_gains_yaw_setted && !_bounds_pos_setted && !_bounds_yaw_setted){
-		std::cout<<RED<<"Bounds or PID gains not setted yet!"<<RESET<<std::endl;
+		ROS_ERROR("Bounds or PID gains not setted yet!");
 		return speed_command;
 	}
 	
 	if(_curr_traj_finished){
 		if(_traject_queue.empty()){
-			std::cout<<RED<<"No other trajectory in queue!"<<RESET<<std::endl;
+			ROS_ERROR("No other trajectory in queue!");
 			return speed_command;
 		}
 		else{
-			std::cout<<"Starting trajectory of duration: "<<_traject_queue.front()->Duration()<<std::endl;
+			ROS_INFO("Starting trajectory of duration: %f",_traject_queue.front()->Duration());
 			_time_current_traj = 0;
 			_curr_traj_finished = false;
 		}
 	}
 	else if(_traject_queue.empty())
-		std::cout<<RED<<"Queue is empty, impossible to compute the speed!"<<RESET<<std::endl; 	
-	else	if(_time_current_traj <= _traject_queue.front()->Duration()){
-			//check if the first point of the traj has been reached		  
-//			if( reaching_start_traj(curr_pose) ) 
-//				_time_current_traj = 1/_freq;
-//			else{
-//				_time_current_traj += 1/_freq;
-//			}
-//			std::cout<<"_time_current_traj: "<< _time_current_traj<<std::endl;
+		ROS_ERROR("Queue is empty, impossible to compute the speed!"); 	
+	else if(_time_current_traj <= _traject_queue.front()->Duration()){
+			//Preparing input for the PID
 			
-			
+			//current x,y,z respectively
 			Eigen::Vector3d position;
-			position(0) = curr_pose(0);
+			position(0) = curr_pose(0); 
 			position(1) = curr_pose(1);
 			position(2) = curr_pose(2);
-			
+			//desired x,y,z respectively
 			Eigen::Vector3d des_pos;
 			des_pos(0) = _traject_queue.front()->Pos(_time_current_traj).p.x();
 			des_pos(1) = _traject_queue.front()->Pos(_time_current_traj).p.y();
 			des_pos(2) = _traject_queue.front()->Pos(_time_current_traj).p.z();				
-//			std::cout<<"des_pos: "<<std::endl<<des_pos<<std::endl; 
-			
-//			std::cout<<"Feedforward velocity: "<<std::endl;
-//			std::cout<<_traject_queue.front()->Vel(_time_current_traj).vel.x()<<std::endl;
-//			std::cout<<_traject_queue.front()->Vel(_time_current_traj).vel.y()<<std::endl;
-//			std::cout<<_traject_queue.front()->Vel(_time_current_traj).vel.z()<<std::endl;
-//			
 			
 			Eigen::Vector3d output_lin_vel;
 			output_lin_vel = PID_pos.ctrl_loop_PID(des_pos-position);
 			speed_command(0) = output_lin_vel(0) + _traject_queue.front()->Vel(_time_current_traj).vel.x(); 
 			speed_command(1) = output_lin_vel(1) + _traject_queue.front()->Vel(_time_current_traj).vel.y();
-			speed_command(2) = output_lin_vel(2) + _traject_queue.front()->Vel(_time_current_traj).vel.z();
-//			std::cout<<"output_lin_vel: "<<std::endl<<output_lin_vel<<std::endl;
-//			std::cout<<"error position: "<<std::endl<<des_pos-position<<std::endl;
-//				std::cout<<"error position: "<<std::endl<<sqrt(pow(des_pos-position,2))<<std::endl;
+			speed_command(2) = output_lin_vel(2) + _traject_queue.front()->Vel(_time_current_traj).vel.z();		
+			//note: using kdl trajectory velocity for feedforward action
 			
-			
+			//Computing desired yaw
+			  
 			float dy = (_time_current_traj+1/_freq > _traject_queue.front()->Duration())?
 			_traject_queue.front()->Pos(_traject_queue.front()->Duration()).p.y()-_traject_queue.front()->Pos(_time_current_traj).p.y():
 			_traject_queue.front()->Pos(_time_current_traj+1/_freq).p.y()-_traject_queue.front()->Pos(_time_current_traj).p.y();
@@ -166,20 +141,17 @@ Eigen::Vector4d PathFollower::compute_speed_command(Eigen::Vector4d curr_pose){
 			_traject_queue.front()->Pos(_time_current_traj+1/_freq).p.x()-_traject_queue.front()->Pos(_time_current_traj).p.x();
 			
 			double des_yaw = atan2(dy,dx);
-//			_traject_queue.front()->Pos(_time_current_traj).M.GetRPY(des_roll, des_pitch, des_yaw);
-			
 			
 			double yaw = curr_pose(3);
 			speed_command(3) = yaw_control(des_yaw, yaw)(0);
-//			std::cout<<"cmd yaw vel PID: "<< speed_command(3)<<std::endl;
 				
 			
 			_time_current_traj += 1/_freq; // updating time for the next call
 			
 			if(_time_current_traj > _traject_queue.front()->Duration()){ 
-				std::cout<<"Trajectory finished"<<std::endl;
+				ROS_INFO("Trajectory finished");
 				_curr_traj_finished = true;
-				std::cout<<"Eliminating finished trajectory from queue"<<std::endl;
+				ROS_INFO("Eliminating finished trajectory from queue");
 				if(_traject_queue.front()){ 
 					delete _traject_queue.front(); // deletes aggregated path and profile instances, too
 				}	
@@ -193,13 +165,17 @@ Eigen::Vector4d PathFollower::compute_speed_command(Eigen::Vector4d curr_pose){
 			lin_vel(2) = speed_command(2);
 			publishing_rviz_topic(curr_pose, des_pos, des_yaw, lin_vel);
 
-
 			return speed_command;		
 		}
 		
 }
 
 
+/**************************************************************
+param:
+- curr_pose: current position of the UAV 
+This function is used to check if the UAV is very distant from the desired position, this situations happens only if a collision occurs.  
+***************************************************************/
 bool PathFollower::check_disaster(Eigen::Vector4d curr_pose){
 	if(!_traject_queue.empty())
 		if(  fabs(_traject_queue.front()->Pos(_time_current_traj).p.x() - curr_pose(0) > FAULT_THRESHOLD)
@@ -209,6 +185,9 @@ bool PathFollower::check_disaster(Eigen::Vector4d curr_pose){
 	return false;
 }
 
+/**************************************************************
+This function publish topics that rviz will use to show the velocity command and the desired pose fo the UAV  
+***************************************************************/
 void PathFollower::publishing_rviz_topic(const Eigen::Vector4d& curr_pose, 
 																				 const Eigen::Vector3d& des_pos, 
 																				 double des_yaw,
@@ -278,7 +257,6 @@ void PathFollower::publishing_rviz_topic(const Eigen::Vector4d& curr_pose,
 
 
 Eigen::VectorXd PathFollower::yaw_control(float des_yaw, float yaw){
-//des_yaw maybe is needed to smooth it
 	Eigen::VectorXd yaw_input;
 	yaw_input.resize(1);
   yaw_input(0) = des_yaw - yaw;
@@ -286,16 +264,6 @@ Eigen::VectorXd PathFollower::yaw_control(float des_yaw, float yaw){
   if(fabs(yaw_input(0)) > M_PI)
     yaw_input(0) = yaw_input(0) - 2*M_PI* ((yaw_input(0)>0)?1:-1);
 
-//	std::cout<<"yaw_input: "<<yaw_input(0)<<std::endl;
-	
-//	if((des_yaw*yaw < 0) && (des_yaw > degToRad(120))&&(des_yaw < degToRad(-120)) && (yaw > degToRad(120))&&(yaw < degToRad(-120))){
-//		if(des_yaw>0)
-//			yaw_input(0) = -fabs(des_yaw + yaw);
-//		else
-//			yaw_input(0) = fabs(des_yaw + yaw);
-//	}
-//	else
-//		yaw_input(0) = des_yaw - yaw;
 	return PID_yaw.ctrl_loop_PID(yaw_input);
 }
 
@@ -306,8 +274,8 @@ float PathFollower::get_percentage_traveled(){
 		return 0;
 }
 
+/**********  FlyAction FUNCTIONS **********/
 
- 
 
 void FlyAction::initialize_server(){
 	  
@@ -324,12 +292,9 @@ void FlyAction::initialize_server(){
 	_local_vel_pub = _nh.advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 0);
   
   _qr_pos_client = _nh.serviceClient<qr_detector_pkg::qr_position_service>("/qr_detector/qr_code_pos_map");
-  //qr_detector_pkg instead of px4_planner, if u want to use the .srv file generated by qr_detector_pkg pkg
  	
-
-	_des_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("path_following/des_pos_point", 0);	
-	_marker_velocity_pub = _nh.advertise<visualization_msgs::Marker>("visualization_marker", 1);
-//	_des_vel_pub = _nh.advertise<geometry_msgs::Vector3Stamped>("path_following/des_vel_point", 0);
+	_des_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("fly_action_server/des_pose", 0);	
+	_marker_velocity_pub = _nh.advertise<visualization_msgs::Marker>("fly_action_server/vel_cmd", 1);
 	  
   _as.start();
 }
@@ -375,7 +340,7 @@ void FlyAction::initialize_path_follower(){
 	_path_follower.set_rviz_publisher(_des_pose_pub, _marker_velocity_pub);
 
 
-//		set PID parameters for landing 
+//set PID parameters for landing 
 	float Kp_land = 0.0; 
 	float Ki_land = 0.0;
 	float Kd1_land = 0.0;
@@ -397,15 +362,14 @@ void FlyAction::initialize_path_follower(){
 void FlyAction::mavros_state_cb( mavros_msgs::State mstate)	{
 	_mstate = mstate;
 }
-/*
-TO DO: change result to geom point, when abort the last position will be the result and the planner could continue to give next action
 
-*/
+
 void FlyAction::mavros_local_pose_cb(geometry_msgs::PoseStamped p) {
 	_local_pose(0) = p.pose.position.x; //local position (x,y,z) uav in box frame
 	_local_pose(1) = p.pose.position.y;
 	_local_pose(2) = p.pose.position.z; 
-			
+	
+	// get yaw angle from quaternion		
 	tf::Quaternion q(
   p.pose.orientation.x,
   p.pose.orientation.y,
@@ -419,8 +383,6 @@ void FlyAction::mavros_local_pose_cb(geometry_msgs::PoseStamped p) {
 
 void FlyAction::qr_pos_cb(const qr_detector_pkg::qr_detection_msg& qr_pos_msg){
 	_qr_pos = qr_pos_msg;
-//	std::cout<<"QR position arrived: "<<unsigned(_qr_pos.qr_code)<<std::endl;
-//	std::cout<<"QR position arrived: "<<_qr_pos.qr_position.x<<"\t"<<_qr_pos.qr_position.y<<"\t"<<_qr_pos.qr_position.z<<std::endl;
 //	ROS_INFO("QR position arrived: (%f , %f , %f) ",_qr_pos.qr_position.x, _qr_pos.qr_position.y, _qr_pos.qr_position.z);
 	_new_qr_msg = true;		
 }
@@ -452,7 +414,11 @@ void FlyAction::arm_and_set_mode(const geometry_msgs::PoseStamped& des_pos){
 	disarmed = false;
 }
 
+/**************************************************************
+The new goal will be processed by this function that take care to do all the operation needed.
 
+Note: the feedback are not sent in most kind of goals beacause the client actually don't read them, the only information needed by the client is the completion of the goal.  
+***************************************************************/
 void FlyAction::px4_cntrl(){		
 	ros::Rate r(10);
 	geometry_msgs::PoseStamped des_pos;
@@ -460,35 +426,27 @@ void FlyAction::px4_cntrl(){
 	while(ros::ok()){
 		if(!_new_goal_available){
 			if(!disarmed && !_now_path_following){ //to avoid fail safe mode
-				std::cout<<"px4_cntrl(): Hovering, Waiting for a new goal"<<std::endl;
-				
-//				if(_last_position_avaiable){
-//					des_pos.pose.position.x = _local_pose(0); 
-//					des_pos.pose.position.y = _local_pose(1);
-//					des_pos.pose.position.z = _local_pose(2);
-//				}
-//				else{
-					des_pos.pose.position.x = _local_pose(0); 
-					des_pos.pose.position.y = _local_pose(1);
-					des_pos.pose.position.z = _local_pose(2);				
-//				}
-				float hoovering_time = 0;
-				while(!_new_goal_available){
-					hoovering_time += 1/10;
+				ROS_INFO("px4_cntrl(): Hovering, Waiting for a new goal");
+				des_pos.pose.position.x = _local_pose(0); 
+				des_pos.pose.position.y = _local_pose(1);
+				des_pos.pose.position.z = _local_pose(2);				
+
+				float hovering_time = 0;
+				while(!_new_goal_available){ 
+					hovering_time += 1/10;
 					_local_pos_pub.publish(des_pos);
 					r.sleep();
-					if(hoovering_time > 10){
+					if(hovering_time > 10){ //if hovering for more than 10 seconds, UAV will land
 						disarmed = true;
-						std::cout<<RED<<"No goal from action client, landing and disarm!"<<RESET<<std::endl;
+						ROS_ERROR("No goal from action client, landing and disarm!");
 						mavros_msgs::CommandTOL land_srv;
 						_land_client.call( land_srv );
 					}
-					
 				}
 			}
-			else{ //i.e. uav landed and waiting goal 
-				if(index == 20){ //publish message once on 10 times 
-					std::cout<<"px4_cntrl(): uav disarmed, waiting for takeoff command"<<std::endl;
+			else{ //i.e. uav landed and waiting new goal 
+				if(index == 20){ //publish message once on 20 times 
+					ROS_INFO("px4_cntrl(): uav disarmed, waiting for takeoff command");
 					index = 0;
 				}
 				index++; 
@@ -496,7 +454,7 @@ void FlyAction::px4_cntrl(){
 			}  
 		}
 		else{
-			std::cout<<"px4_cntrl(): Processing new goal"<<std::endl;
+			ROS_INFO("px4_cntrl(): Processing new goal");
 			_new_goal_available = false;
 			_preempt_request = false;
 			const px4_planner::FlyGoal goal = _new_goal;
@@ -516,23 +474,21 @@ void FlyAction::px4_cntrl(){
 						_result.result = false;
 						_as.setAborted(_result);
 					}
-					else{
-						int numDigits = 3;  
-						des_pos.pose.position.x = roundf(_local_pose(0) * powf(10, numDigits)) / powf(10, numDigits); 
-						des_pos.pose.position.y = roundf(_local_pose(1) * powf(10, numDigits)) / powf(10, numDigits);
+					else{  
+						des_pos.pose.position.x = _local_pose(0); 
+						des_pos.pose.position.y = _local_pose(1);
 						des_pos.pose.position.z = goal.path.poses[0].pose.position.z;					
-						std::cout<<"Takeoff setpoint: "<<des_pos.pose.position.x<<"\t"
-																			     <<des_pos.pose.position.y<<"\t"
-																					 <<des_pos.pose.position.z<<std::endl;
+						ROS_INFO("Takeoff setpoint: (%f, %f, %f) ", des_pos.pose.position.x, 
+																												des_pos.pose.position.y,
+																					 							des_pos.pose.position.z);
 						arm_and_set_mode(des_pos);
-						
 						_feedback.progress = 0;
 						_as.publishFeedback(_feedback);
 						float error = fabs(des_pos.pose.position.z - _local_pose(2));
 
 						while( ros::ok() 
 								&& (!_preempt_request) 
-								&& !( fabs((des_pos.pose.position.z - _local_pose(2))/des_pos.pose.position.z) < 0.9 )) {
+								&& !( fabs((des_pos.pose.position.z - _local_pose(2))/des_pos.pose.position.z) < 0.07 )) {
 							_local_pos_pub.publish(des_pos);
 							_feedback.progress = (int)(100*_local_pose(2)/des_pos.pose.position.z);
 							_as.publishFeedback(_feedback);
@@ -543,36 +499,36 @@ void FlyAction::px4_cntrl(){
 						}
 							
 					
-						geometry_msgs::TwistStamped cmd_vel;
-						Eigen::Vector3d cmd_vel_PID;
-						Eigen::Vector3d land_pos;
-						land_pos(0) = des_pos.pose.position.x;
-						land_pos(1) = des_pos.pose.position.y;
-						land_pos(2) = des_pos.pose.position.z;
-						float initial_yaw = _local_pose(3);
-						while( ros::ok() 
-									&& (!_preempt_request)
-							    && !(fabs(des_pos.pose.position.z - _local_pose(2)) < 0.05 ) )
-					  {
-					  			std::cout<<"error: "<<(fabs(des_pos.pose.position.z - _local_pose(2)) < 0.03) <<std::endl;			
-					  			Eigen::Vector3d local_pos;
-					  			local_pos(0) = _local_pose(0);
-					  			local_pos(1) = _local_pose(1);
-					  			local_pos(2) = _local_pose(2);
+//						geometry_msgs::TwistStamped cmd_vel;
+//						Eigen::Vector3d cmd_vel_PID;
+//						Eigen::Vector3d land_pos;
+//						land_pos(0) = des_pos.pose.position.x;
+//						land_pos(1) = des_pos.pose.position.y;
+//						land_pos(2) = des_pos.pose.position.z;
+//						float initial_yaw = _local_pose(3);
+//						while( ros::ok() 
+//									&& (!_preempt_request)
+//							    && !(fabs(des_pos.pose.position.z - _local_pose(2)) < 0.05 ) )
+//					  {
+//					  			std::cout<<"error: "<<(fabs(des_pos.pose.position.z - _local_pose(2)) < 0.03) <<std::endl;			
+//					  			Eigen::Vector3d local_pos;
+//					  			local_pos(0) = _local_pose(0);
+//					  			local_pos(1) = _local_pose(1);
+//					  			local_pos(2) = _local_pose(2);
 
-									cmd_vel_PID = _pid_land.ctrl_loop_PID(land_pos-local_pos);
-									cmd_vel.twist.linear.x = cmd_vel_PID(0);
-									cmd_vel.twist.linear.y = cmd_vel_PID(1);
-									cmd_vel.twist.linear.z = cmd_vel_PID(2);
+//									cmd_vel_PID = _pid_land.ctrl_loop_PID(land_pos-local_pos);
+//									cmd_vel.twist.linear.x = cmd_vel_PID(0);
+//									cmd_vel.twist.linear.y = cmd_vel_PID(1);
+//									cmd_vel.twist.linear.z = cmd_vel_PID(2);
 
-									//publishing for rviz visualization
-									_path_follower.publishing_rviz_topic( _local_pose, land_pos, initial_yaw, cmd_vel_PID);
-//									ROS_INFO("freq check");
-	//							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
-									_local_vel_pub.publish(cmd_vel);							
-									std::cout<<"Error PID: "<<land_pos-local_pos<<std::endl;
-									r.sleep();
-						}
+//									//publishing for rviz visualization
+//									_path_follower.publishing_rviz_topic( _local_pose, land_pos, initial_yaw, cmd_vel_PID);
+////									ROS_INFO("freq check");
+//	//							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
+//									_local_vel_pub.publish(cmd_vel);							
+//									std::cout<<"Error PID: "<<land_pos-local_pos<<std::endl;
+//									r.sleep();
+//						}
 						
 						if(_preempt_request){
 							_preempt_request = false;
@@ -580,14 +536,12 @@ void FlyAction::px4_cntrl(){
 							ROS_INFO("%s: Preempted", _action_name.c_str());
 							_as.setPreempted();
 						}
-	//					if( error < 0.05 ){
+						else{
 					    ROS_INFO("%s: Succeeded", _action_name.c_str());
 					    _result.result = true;
 					    _as.setSucceeded(_result);
-	//					}
-					
+						}
 					}
-					
 					break;			
 				}// end FlyGoal::TAKEOFF
 				case px4_planner::FlyGoal::LAND: //used mostly to land at home
@@ -599,6 +553,7 @@ void FlyAction::px4_cntrl(){
 						_as.setAborted(_result);
 					}
 					else{	
+						//desired land position chosen by the client (the x and y should coincide to the last position of the path in order to avoid obstacles)
 						des_pos.pose.position.x = goal.path.poses[0].pose.position.x; 
 						des_pos.pose.position.y = goal.path.poses[0].pose.position.y;
 						des_pos.pose.position.z = _local_pose(2);		
@@ -611,27 +566,23 @@ void FlyAction::px4_cntrl(){
 						float initial_yaw = _local_pose(3);
 						while( ros::ok() 
 									&& (!_preempt_request)
-							    && (!(fabs(land_pos(0) - _local_pose(0)) < 0.03 )
-									|| !(fabs(land_pos(1) - _local_pose(1)) < 0.03 )) )
+							    && (!(fabs(land_pos(0) - _local_pose(0)) < LANDING_ERROR_THRESHOLD)
+									|| !(fabs(land_pos(1) - _local_pose(1)) < LANDING_ERROR_THRESHOLD )) )
 					  {
-					  			Eigen::Vector3d local_pos;
-					  			local_pos(0) = _local_pose(0);
-					  			local_pos(1) = _local_pose(1);
-					  			local_pos(2) = _local_pose(2);
-					  			
-									cmd_vel_PID = _pid_land.ctrl_loop_PID(land_pos-local_pos);
-									cmd_vel.twist.linear.x = cmd_vel_PID(0);
-									cmd_vel.twist.linear.y = cmd_vel_PID(1);
-									cmd_vel.twist.linear.z = cmd_vel_PID(2);
-									
-									//publishing for rviz visualization
-									_path_follower.publishing_rviz_topic( _local_pose, land_pos, initial_yaw, cmd_vel_PID);
-									
-									
-//									ROS_INFO("freq check");
-	//							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
-									_local_vel_pub.publish(cmd_vel);							
-									std::cout<<"Error PID: "<<land_pos-local_pos<<std::endl;
+			  			Eigen::Vector3d local_pos;
+			  			local_pos(0) = _local_pose(0);
+			  			local_pos(1) = _local_pose(1);
+			  			local_pos(2) = _local_pose(2);
+			  			
+							cmd_vel_PID = _pid_land.ctrl_loop_PID(land_pos-local_pos);
+							cmd_vel.twist.linear.x = cmd_vel_PID(0);
+							cmd_vel.twist.linear.y = cmd_vel_PID(1);
+							cmd_vel.twist.linear.z = cmd_vel_PID(2);
+							
+							//publishing for rviz visualization
+							_path_follower.publishing_rviz_topic( _local_pose, land_pos, initial_yaw, cmd_vel_PID);
+
+							_local_vel_pub.publish(cmd_vel);							
 							r.sleep();
 						}
 						mavros_msgs::CommandTOL land_srv;
@@ -653,10 +604,12 @@ void FlyAction::px4_cntrl(){
 						_as.setAborted(_result);
 					}
 					else{ 
+						//after the reaching of the QR code position specified by the action client, it will read the position from this topic in order
+						//to not be affected by outliers during the misuration of the QR code position done during the exploration phase   
 						_qr_pos_sub = _nh.subscribe("/qr_detector/qr_pos_mov_average", 1, &FlyAction::qr_pos_cb, this);
-						std::cout<<"QR code: "<<unsigned(goal.qr_code)<<std::endl;
 						
 						/*wait in hovering for the first qr position callback*/
+
 						Eigen::Vector3d initial_pos;
 						initial_pos(0) = _local_pose(0);
 						initial_pos(1) = _local_pose(1);
@@ -683,11 +636,7 @@ void FlyAction::px4_cntrl(){
 							
 							//publishing for rviz visualization 							
 							_path_follower.publishing_rviz_topic( _local_pose, initial_pos, initial_yaw, cmd_vel_PID);
-
-//							ROS_INFO("freq check");
-//							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
 							_local_vel_pub.publish(cmd_vel);							
-//							std::cout<<"Error PID: "<<initial_pos-local_pos<<std::endl;
 							
 							if(_new_qr_msg && (_qr_pos.qr_code == goal.qr_code)){ //check if could stop to hovering
 								qr_land_pos(0) = _qr_pos.qr_position.x;
@@ -700,19 +649,18 @@ void FlyAction::px4_cntrl(){
 						}				
 						_new_qr_msg = false;
 						
-						/* landing on qr code*/
+						/* reaching precise QR code position*/
 						while( ros::ok() 
 									&& (!_preempt_request)
-							    && (!(fabs(qr_land_pos(0) - _local_pose(0)) < 0.03 )
-									|| !(fabs(qr_land_pos(1) - _local_pose(1)) < 0.03 )) )
+							    && (!(fabs(qr_land_pos(0) - _local_pose(0)) < LANDING_ERROR_THRESHOLD )
+									|| !(fabs(qr_land_pos(1) - _local_pose(1)) < LANDING_ERROR_THRESHOLD )) )
 					  {
 							if(_new_qr_msg && (_qr_pos.qr_code == goal.qr_code)){ //updating QR code position
 								qr_land_pos(0) = _qr_pos.qr_position.x;
 								qr_land_pos(1) = _qr_pos.qr_position.y;
 								_new_qr_msg = false;
 							}
-//					  	std::cout<<"QR code: "<<unsigned(_qr_pos.qr_code)<<"  position:  x"<<_qr_pos.qr_position.x<<"\ty:"<<_qr_pos.qr_position.y
-//					  	<<std::endl;
+
 			  			Eigen::Vector3d local_pos;
 			  			local_pos(0) = _local_pose(0);
 			  			local_pos(1) = _local_pose(1);
@@ -726,17 +674,12 @@ void FlyAction::px4_cntrl(){
 							//publishing for rviz visualization 							
 							_path_follower.publishing_rviz_topic( _local_pose, initial_pos, initial_yaw, cmd_vel_PID);
 
-
-//							ROS_INFO("freq check");
-//							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
 							_local_vel_pub.publish(cmd_vel);							
-							std::cout<<"Error PID: "<<qr_land_pos-local_pos<<std::endl;
 							r.sleep();
 						}
 					
 						if(_preempt_request){
 							_preempt_request = false;
-							//ROS_INFO("Takeoff has been preempted");
 							ROS_INFO("%s: Preempted", _action_name.c_str());
 							_as.setPreempted();
 						}
@@ -770,16 +713,17 @@ void FlyAction::px4_cntrl(){
 																																				
 						}
 						_path_follower.push_traj(goal.path, goal.path_vel, _local_pose(3));
-						std::cout<<"px4_cntrl(): Received new checkpoint of the path, total number of checkpoint: "<<_path_follower.traj_queue_size()<<std::endl;
+						std::cout<<"px4_cntrl(): Received new checkpoint of the path, total number of checkpoint: "<<
+																																			_path_follower.traj_queue_size()<<std::endl;
 						
 						int initial_size = _path_follower.traj_queue_size();
-						if(initial_size > 1) //if initial_size = 1 set immediately goal succeded
+						if(initial_size > 1) //if initial_size = 1 set immediately goal succeded because is waiting for the next goal to start pathfollowing
 							while(ros::ok() 
-									&& (_path_follower.traj_queue_size() != initial_size-1 ) 
+									&& (_path_follower.traj_queue_size() != initial_size-1 )//waits current trajectory is finished
 									&& !_preempt_request )
 								r.sleep(); //waiting initial_size become lower
 						else 
-							std::cout<<BOLDWHITE<<"px4_cntrl(): First checkpoint received, intiating path! "<<RESET<<std::endl;
+							ROS_INFO("px4_cntrl(): First checkpoint received, intiating path! ");
 						
 						if(_preempt_request){
 							_preempt_request = false;
@@ -787,20 +731,20 @@ void FlyAction::px4_cntrl(){
 							_as.setPreempted();
 						}
 						else{
-							std::cout<<"px4_cntrl(): FOLLOWPATH Action completed"<<std::endl;
+							ROS_INFO("px4_cntrl(): FOLLOWPATH Action completed");
 							_result.result = true;
 							_as.setSucceeded(_result);
 					  }
 					}
 					break;
 				}// end FlyGoal::FOLLOWPATH 
-				case px4_planner::FlyGoal::END_PATH:
+				case px4_planner::FlyGoal::END_PATH: //this goal is received to notify that the path following is finished 
 				{
 					ROS_INFO("End trajectory action");
 					_ending_path = true;
-					std::cout<<"Waiting ending last checkpoint, trajectory queue size: "<<_path_follower.traj_queue_size()<<std::endl;
+					ROS_INFO("Waiting ending last checkpoint, trajectory queue size: %d",_path_follower.traj_queue_size());
 					while(ros::ok() 
-								&& !_path_follower.check_queue_empty() 
+								&& !_path_follower.check_queue_empty() //waits that the queue be empty, i.e. finish all the trajectories 
 								&& !_preempt_request )
 						r.sleep();
 					_ending_path = false;
@@ -820,29 +764,28 @@ void FlyAction::px4_cntrl(){
 				default:
 					ROS_ERROR("Invalid command mask");
 				break;
-				}//end switch		
+			}//end switch		
 		}
 	}
 }
 
 void FlyAction::goalCB()
 {
-	std::cout<<GREEN<<"goalCB(): New goal available"<<RESET<<std::endl;
-	_preempt_request = false; //commenting so the current action would be stopped
+	ROS_INFO("goalCB(): New goal available");
+	_preempt_request = false; 
 	_new_goal = *_as.acceptNewGoal();
-//	px4_planner::FlyGoalConstPtr _new_goal_ptr = _as.acceptNewGoal();
 	
 	if(_as.isPreemptRequested()){
 		ROS_INFO("New goal has been preempted");
 		ROS_INFO("%s: Preempted", _action_name.c_str());
 		_as.setPreempted();
 	}
-	else{
+	else{ // check if the new goal is consistent considering the path following action
 		if(!_path_follower.check_queue_empty()
 				&& (!_new_goal.command_mask == px4_planner::FlyGoal::FOLLOWPATH
 				|| !_new_goal.command_mask == px4_planner::FlyGoal::END_PATH))
 		{
-			std::cout<<RED<<"Request action different from 'END_PATH' or 'FOLLOWPATH' action while path following"<<RESET<<std::endl;
+			ROS_ERROR("Request action different from 'END_PATH' or 'FOLLOWPATH' action while path following");
 			_as.setAborted();
 		}
 		else{
@@ -867,24 +810,18 @@ void FlyAction::px4_PIDloop(){
 		while( (_path_follower.traj_queue_size() < 2) && !_ending_path)
 			r.sleep();
 		_now_path_following = true;
-		std::cout<<BOLDBLUE<<"px4_PIDloop(): Start following path"<<RESET<<std::endl;
+		ROS_INFO("px4_PIDloop(): Start following path");
 		
-//		_last_position_path_avaiable = false;
 		while( !_path_follower.check_queue_empty() && !_path_follower.check_disaster(_local_pose) ) {
-		
 			cmd_vel_PID = _path_follower.compute_speed_command(_local_pose);
 			cmd_vel.twist.linear.x = cmd_vel_PID(0);
 			cmd_vel.twist.linear.y = cmd_vel_PID(1);
 			cmd_vel.twist.linear.z = cmd_vel_PID(2);
 			
 			cmd_vel.twist.angular.z = cmd_vel_PID(3);
-//			ROS_INFO("freq check");
-	//							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
 			_local_vel_pub.publish(cmd_vel);							
 			r.sleep();
 		}
-//		_last_position_path_avaiable = true;
-//   _last_position_path = path ... set in the ctrl loop
 
 		cmd_vel.twist.linear.x = 0;
 		cmd_vel.twist.linear.y = 0;
@@ -895,14 +832,13 @@ void FlyAction::px4_PIDloop(){
 
 		_now_path_following = false;
 		//at the next path we start with resetted integrator
-//		_path_follower.reset_PIDs_state(); 
-		if(_path_follower.check_disaster(_local_pose)){
+		_path_follower.reset_PIDs_state(); 
+		if(_path_follower.check_disaster(_local_pose)){ 
 			disarmed = true;
-			std::cout<<RED<<"Error too much bigger! Landing and disarm"<<RESET<<std::endl;
+			ROS_ERROR("Error too much bigger! Landing and disarm");
 			mavros_msgs::CommandTOL land_srv;
 			_land_client.call( land_srv );
 		}
-		
 		r.sleep();
 	}
 }
@@ -912,7 +848,6 @@ void FlyAction::run(){
 	boost::thread px4_PIDloop_t( &FlyAction::px4_PIDloop, this );	
 	ros::spin();
 }
-/*NOTE: in simple action server the preemptCB will be called if the goal is canceled and if another goal is available */
 
 
 
