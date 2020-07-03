@@ -1,4 +1,4 @@
-# mavros_visp_ompl_exploration
+# UAV exploration in unknown environment and QR detection
 The README.md of the repository (we will see it in our last course lesson), must
 contain a comprehensive description on how to download, compile/install and run
 your solution. For this reason, in this section you must also add any reference to
@@ -94,6 +94,4 @@ After done the command `roslaunch master_pkg all.launch` will start rviz and wil
 * desired pose pose of the UAV: red arrow. 
 * velocity command computed by the PID: rviz marker green arrow. 
 * last path sent by the action client to the action server: green line.
-[jo_rep]: https://github.com/jocacace/Firmware
-[jo_README]: https://github.com/jocacace/Firmware/blob/master/README.md
 
