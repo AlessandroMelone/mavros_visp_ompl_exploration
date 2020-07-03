@@ -86,7 +86,7 @@ void MASTER::topic_cb_detectedQRcode(std_msgs::Int32 data) {
 		int new_qr_code_mask = qr_detected_mask ^ new_qr_detected_mask; //XOR
 		for (int qr_code=1; qr_code <= NUM_QRCODE; qr_code++) {
 			if ((new_qr_code_mask & int(pow(2,qr_code-1))) != 0) {
-				cout<<"Number new QR code detected: "<<qr_code<<endl;
+				cout<<"---------- New QR code detected: "<<qr_code<<endl;
 				qr_code_finded++;
 			}
 		}
@@ -264,8 +264,8 @@ void MASTER::master_menu(){
         landOnQRcode(5.03641, 8.14686, 2);
         ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
       }
-      else {   
-      	cout<<"Failed to activate the QR detector."<<endl;   
+      else {
+      	cout<<"Failed to activate the QR detector."<<endl;
       }
 		}
 	}
@@ -318,6 +318,7 @@ bool MASTER::exploration_phase(){
 	}
 	cout<<"Waypoints terminated. Going back to the base..."<<endl;
 	landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
+	cout<<"returning.."<<endl;
 	return true;
 }
 
@@ -327,18 +328,18 @@ bool MASTER::landOnQRcode(float x, float y, int qr_code){
 
 	//req.request.land_mask = px4_planner_node::planner_commander_service::QR_CODE_LAND;
 
-	cout<<"Sending the mission to land on the QR code "<<qr_code<<" on ("<<x<<" "<<y<<")"<<endl;
+	cout<<" - Sending the mission to land on the QR code "<<qr_code<<" on ("<<x<<" "<<y<<")"<<endl;
 	if (_client_planner.call(req)){
 		if(req.response.completed){
-			cout<<"Mission correctly completed"<<endl<<endl;
+			cout<<" -- Mission correctly completed"<<endl<<endl;
 		}
 		else {
-			ROS_INFO("Planner can't complete the mission");
+			cout<<" -- Planner can't complete the mission"<<endl;
 			return false;
 		}
 	}
 	else {
-		ROS_INFO("Not possible to connect with planner");
+		cout<<" - Not possible to connect with planner"<<endl;
 		return false;
 	}
 	return true;
@@ -351,18 +352,18 @@ bool MASTER::landOnPoint(float x, float y){
 	req.request.qr_code = -1;
 	req.request.land_mask = 1;
 
-	cout<<"Sending the mission to land on the point ("<<x<<" "<<y<<")"<<endl;
+	cout<<" - Sending the mission to land on the point ("<<x<<" "<<y<<")"<<endl;
 	if (_client_planner.call(req)){
 		if(req.response.completed){
-			cout<<"Mission correctly completed"<<endl<<endl;
+			cout<<" -- Mission correctly completed"<<endl<<endl;
 		}
 		else {
-			ROS_INFO("Planner can't complete the mission");
+			cout<<" -- Planner can't complete the mission"<<endl;
 			return false;
 		}
 	}
 	else {
-		ROS_INFO("Not possible to connect with planner");
+		cout<<" - Not possible to connect with planner"<<endl;
 		return false;
 	}
 	return true;
@@ -375,18 +376,18 @@ bool MASTER::reachPoint(float x, float y){
 	req.request.qr_code = -1;
 	req.request.land_mask = 0;
 
-	cout<<"Sending the mission to reach the point ("<<x<<" "<<y<<")"<<endl;
+	cout<<" - Sending the mission to reach the point ("<<x<<" "<<y<<")"<<endl;
 	if (_client_planner.call(req)){
 		if(req.response.completed){
-			cout<<"Mission correctly completed"<<endl<<endl;
+			cout<<" -- Mission correctly completed"<<endl<<endl;
 		}
 		else {
-			ROS_INFO("Planner can't complete the mission");
+			cout<<" -- Planner can't complete the mission"<<endl;
 			return false;
 		}
 	}
 	else {
-		ROS_INFO("Not possible to connect with planner");
+		cout<<" - Not possible to connect with planner"<<endl;
 		return false;
 	}
 	return true;
@@ -440,11 +441,19 @@ void MASTER::compute_waypoints(const float& lenght_stride, const float& lenght_x
 		j = j+4;
 	}
 
+
+
 	//converting the way point from box frame to map frame
 	for(int i=0;i<_x_waypoints.size();i++){
-		_x_waypoints(i) = _x_waypoints(i)- 0.5;
+		_x_waypoints(i) = _x_waypoints(i) - 0.5;
 		_y_waypoints(i) = _y_waypoints(i) - 1.5;
 	}
+
+	_x_waypoints.resize(1);
+	_y_waypoints.resize(1);
+	_x_waypoints(0) = 0.75;
+	_y_waypoints(0) = -0.25;
+
 
 }
 
@@ -471,4 +480,3 @@ int main( int argc, char** argv ) {
 	master.run();
 	return 0;
 }
-
