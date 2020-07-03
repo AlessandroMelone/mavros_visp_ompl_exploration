@@ -86,8 +86,14 @@ Now to check if all is ok you could execute:
 $ roscd px4
 ```
 And now you should be in the *Firmware* folder.
+# Rviz
+After the command `$ roslaunch master_pkg all.launch` will start rviz with as shown by the following image.
+![rviz window](docs/rviz_uav.png)
 
+After done the command `roslaunch master_pkg all.launch` will start rviz and will show: 
+* desired pose pose of the UAV: red arrow. 
+* velocity command computed by the PID: rviz marker green arrow. 
+* last path sent by the action client to the action server: green line.
 [jo_rep]: https://github.com/jocacace/Firmware
 [jo_README]: https://github.com/jocacace/Firmware/blob/master/README.md
-elf is open source with a [public repository][dill]
- on GitHub.
+
