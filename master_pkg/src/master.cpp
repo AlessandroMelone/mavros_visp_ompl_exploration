@@ -448,13 +448,6 @@ void MASTER::compute_waypoints(const float& lenght_stride, const float& lenght_x
 		_x_waypoints(i) = _x_waypoints(i) - 0.5;
 		_y_waypoints(i) = _y_waypoints(i) - 1.5;
 	}
-
-	_x_waypoints.resize(1);
-	_y_waypoints.resize(1);
-	_x_waypoints(0) = 0.75;
-	_y_waypoints(0) = -0.25;
-
-
 }
 
 void MASTER::print_waypoints(){
