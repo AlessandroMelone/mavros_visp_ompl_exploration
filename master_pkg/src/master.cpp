@@ -120,7 +120,7 @@ std::string MASTER::get_this_input(){
 
 void MASTER::master_menu(){
 	ros::Rate r(10);
-	while (ros::ok() && (inputString != "0")) {
+	while (ros::ok() && (inputString != "k")) {
 		//qr_detector_pkg::activate_service srv; srv.request.activate = true; _client_qrdetector.call(srv); _client_qrfilter.call(srv);
 		cout<<endl<<"Here, a list of the possible actions: "<<endl;
 		cout<<"\t 1. Start exploring action"<<endl;
@@ -132,8 +132,8 @@ void MASTER::master_menu(){
 		cout<<"\t 7. Reach a QR code sequence. The list is given by the user."<<endl;
 		cout<<"\t 8. Reach the QR code TEST sequence"<<endl;
 		cout<<"\t 9. Activate QR service"<<endl;
-		cout<<"\t 0. Exit"<<endl;
-		cout<<"-----------------> Make your choice: "<<endl;
+		cout<<"\t -- Type 'k' to exit --"<<endl;
+		cout<<"-----------------> Make your choice: ";
 
 
 		std::string menuChoice = get_this_input();
