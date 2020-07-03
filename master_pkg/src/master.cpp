@@ -88,7 +88,7 @@ void MASTER::topic_cb_detectedQRcode(std_msgs::Int32 data) {
 		cout<<"new_qr_code_mask: "<<new_qr_code_mask<<endl;
 		for (int qr_code=1; qr_code <= NUM_QRCODE; qr_code++) {
 			cout<<"new_qr_code_mask & int(pow(2,qr_code-1): "<<int(new_qr_code_mask & int(pow(2,qr_code-1)))<<endl;
-			if (new_qr_code_mask & int(pow(2,qr_code-1)) != 0) {
+			if ((new_qr_code_mask & int(pow(2,qr_code-1))) != 0) {
 				cout<<"Number new QR code detected: "<<qr_code<<endl;
 				qr_code_finded++;
 			}
@@ -253,6 +253,9 @@ void MASTER::master_menu(){
 			hoveringOnPoint(x_cord, y_cord);
 		}
 		else if (menuChoice=="8") {
+			qr_detector_pkg::activate_service srv_activate;
+			srv_activate.request.activate = true;
+			if (_client_qrdetector.call(srv_activate)) {
 				landOnQRcode(2.27077, 0.483215, 4);
 				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
 				landOnQRcode(7.84261, 8.01971, 5);
@@ -263,6 +266,8 @@ void MASTER::master_menu(){
 				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
 				landOnQRcode(5.03641, 8.14686, 2);
 				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+			}
+			else { 	cout<<"Failed to activate the QR detector."<<endl; 	}
 		}
 	}
 	cout<<"Bye bye :)"<<endl;
