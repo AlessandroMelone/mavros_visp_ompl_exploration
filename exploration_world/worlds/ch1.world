@@ -21,7 +21,7 @@
     </include>
 
 		<include>
-      <pose> 14.3 8.0 1.65 0 0 1.57</pose>
+      <pose> 12.53 8.46 1.09 0 0 1.57</pose>
 <!--      <pose> -2 0.0 0.05 0 0 1.57</pose>-->
       <uri>model://id1</uri>
     </include>
@@ -33,7 +33,7 @@
     </include>
 
 		<include>
-      <pose> 12.65 7.0 0.05 0 0 1.57</pose>
+      <pose> 11.0 7.0 0.05 0 0 1.57</pose>
 <!--      <pose> -2 2.0 0.05 0 0 1.57</pose>-->
       <uri>model://id3</uri>
     </include>
@@ -44,7 +44,7 @@
       <uri>model://id4</uri>
     </include>
 		<include>
-      <pose> 8.429955 9.0 0.05 0 0 1.57</pose>
+      <pose> 8.36 9.6 0.05 0 0 1.57</pose>
 <!--      <pose> -2 4.0 0.05 0 0 1.57</pose>-->
       <uri>model://id5</uri>
     </include>
