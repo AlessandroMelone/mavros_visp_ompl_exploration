@@ -37,7 +37,7 @@ class MASTER {
 		bool exploration_phase2();
 		bool landOnQRcode(float x, float y, int qr_code);
 		bool landOnPoint(float x, float y);
-		bool hoveringOnPoint(float x, float y);
+		bool reachPoint(float x, float y);
 		void compute_waypoints(const float& , const float& , const float& , const float&);
 		void print_waypoints();
 		void topic_cb_detectedQRcode(std_msgs::Int32 data);
@@ -83,11 +83,8 @@ void MASTER::topic_cb_detectedQRcode(std_msgs::Int32 data) {
 	int new_qr_detected_mask = data.data;
 
 	if(qr_detected_mask != new_qr_detected_mask){
-		cout<<"New QR code"<<endl;
 		int new_qr_code_mask = qr_detected_mask ^ new_qr_detected_mask; //XOR
-		cout<<"new_qr_code_mask: "<<new_qr_code_mask<<endl;
 		for (int qr_code=1; qr_code <= NUM_QRCODE; qr_code++) {
-			cout<<"new_qr_code_mask & int(pow(2,qr_code-1): "<<int(new_qr_code_mask & int(pow(2,qr_code-1)))<<endl;
 			if ((new_qr_code_mask & int(pow(2,qr_code-1))) != 0) {
 				cout<<"Number new QR code detected: "<<qr_code<<endl;
 				qr_code_finded++;
@@ -250,24 +247,26 @@ void MASTER::master_menu(){
 			float x_cord = stof(get_this_input());
 			cout<<"\t y coordinate (map frame): ";
 			float y_cord = stof(get_this_input());
-			hoveringOnPoint(x_cord, y_cord);
+			reachPoint(x_cord, y_cord);
 		}
 		else if (menuChoice=="8") {
 			qr_detector_pkg::activate_service srv_activate;
-			srv_activate.request.activate = true;
-			if (_client_qrdetector.call(srv_activate)) {
-				landOnQRcode(2.27077, 0.483215, 4);
-				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-				landOnQRcode(7.84261, 8.01971, 5);
-				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-				landOnQRcode(13.8426, 3.45998, 6);
-				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-				landOnQRcode(4.39203, 2.51232, 1);
-				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-				landOnQRcode(5.03641, 8.14686, 2);
-				ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-			}
-			else { 	cout<<"Failed to activate the QR detector."<<endl; 	}
+      srv_activate.request.activate = true;
+      if (_client_qrdetector.call(srv_activate)) {
+        landOnQRcode(2.27077, 0.483215, 4);
+        ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+        landOnQRcode(7.84261, 8.01971, 5);
+        ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+        landOnQRcode(13.8426, 3.45998, 6);
+        ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+        landOnQRcode(4.39203, 2.51232, 1);
+        ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+        landOnQRcode(5.03641, 8.14686, 2);
+        ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+      }
+      else {   
+      	cout<<"Failed to activate the QR detector."<<endl;   
+      }
 		}
 	}
 	cout<<"Bye bye :)"<<endl;
@@ -297,7 +296,7 @@ bool MASTER::exploration_phase(){
 	px4_planner::planner_commander_service req;
 	req.request.qr_code = -1;
 
-	while(ros::ok()){
+	while(ros::ok() && (current_waypoint < _x_waypoints.size())){
 		if (_new_key_input){
 			_new_key_input = false;
 			if (inputString=="s") {
@@ -307,26 +306,19 @@ bool MASTER::exploration_phase(){
 			}
 		}
 
-
 		if(qr_code_finded >= NUM_QRCODE){
 			cout<<"All QR code finded! Going back to the base..."<<endl;
 			landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
 			return true;
 		}
 
-		if (current_waypoint == _x_waypoints.size()) {		//way points are finished, come back to the start position and land
-			cout<<"Waypoints terminated. Going back to the base..."<<endl;
-			landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
-		}
-		else {
-			hoveringOnPoint(_x_waypoints[current_waypoint], _y_waypoints[current_waypoint]);
-		}
-
-
+		reachPoint(_x_waypoints[current_waypoint], _y_waypoints[current_waypoint]);
 		current_waypoint++;
 		r.sleep();
 	}
-	return !_abort_request; 		//return true if the exploration was not aborted, false otherwise
+	cout<<"Waypoints terminated. Going back to the base..."<<endl;
+	landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
+	return true;
 }
 
 bool MASTER::landOnQRcode(float x, float y, int qr_code){
@@ -376,7 +368,7 @@ bool MASTER::landOnPoint(float x, float y){
 	return true;
 }
 
-bool MASTER::hoveringOnPoint(float x, float y){
+bool MASTER::reachPoint(float x, float y){
 	px4_planner::planner_commander_service req;
 	req.request.x = x;
 	req.request.y = y;
