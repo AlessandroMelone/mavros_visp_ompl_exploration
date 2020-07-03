@@ -201,6 +201,7 @@ void MASTER::master_menu(){
 					}
 					else cout<<"QR code "<<qr_code<<" has not been detected yet, it will be skipped"<<endl;
 				}
+				landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
 				srv_activate.request.activate = false;
 				_client_qrdetector.call(srv_activate);
 			}
@@ -263,6 +264,7 @@ void MASTER::master_menu(){
         ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
         landOnQRcode(5.03641, 8.14686, 2);
         ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
+	landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
       }
       else {
       	cout<<"Failed to activate the QR detector."<<endl;
