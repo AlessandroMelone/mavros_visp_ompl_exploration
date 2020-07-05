@@ -59,14 +59,17 @@ the "long path" composed by "short path" elements.
 #include <queue>    
 
 #define PID_FREQ 10.0
-#define FAULT_THRESHOLD 4.0
-#define LANDING_ERROR_THRESHOLD 0.03
+#define FAULT_THRESHOLD 5.0
+#define LANDING_ERROR_THRESHOLD 0.04
+#define QR_LANDING_ERROR_THRESHOLD 0.025
 /*COLORS*/
 #define degToRad(angleInDegrees) ((angleInDegrees) * M_PI / 180.0)
 
 
-// PID CONTROLLER
-	
+ 
+/********************************************************
+Class to implement a PID controller.
+*********************************************************/
 class PID_contr {
   public:
    	PID_contr(int size){set_size(size);};
@@ -104,25 +107,24 @@ class PID_contr {
 };
 
 
-// PATH FOLLOWER
+/********************************************************
+Class that uses PID controllers to compute velocity command in order to follow path. The received path is used to generate KDL trajectories which are used to give the reference to the PID.
+*********************************************************/
 
 class PathFollower {
 	
   public:
   	PathFollower(float freq):PID_pos(3), PID_yaw(1), _freq(freq){};//need to set gain
-/*  	bool check_end_current_traj(){return _curr_traj_finished;};*/
-  	bool check_queue_empty(){return _traject_queue.empty();}
-  	int traj_queue_size(){return _traject_queue.size();}
-    void push_traj( nav_msgs::Path path, float maxvel, float current_yaw);
-    
-/*    bool reaching_start_traj(Eigen::Vector4d curr_pose);*/
-/*    Eigen::Vector4d compute_speed_command(Eigen::Vector4d curr_pose, ros::Publisher des_pose_pub, ros::Publisher marker_velocity_pub);//need to be called with _freq Hz */
+  	
+  	float get_percentage_traveled(); //to give the feedback to client action server 
+    int traj_queue_size(){return _traject_queue.size();}
+    bool check_queue_empty(){return _traject_queue.empty();}
+    bool check_disaster(Eigen::Vector4d curr_pose);
+  	
+    void push_traj( nav_msgs::Path path, float maxvel); //given a path generates the trajectory 
     Eigen::Vector4d compute_speed_command(Eigen::Vector4d curr_pose);
     void publishing_rviz_topic(const Eigen::Vector4d& curr_pose, const Eigen::Vector3d& des_pos, double des_yaw,const Eigen::Vector3d& lin_vel);
-      
     
-    float get_percentage_traveled(); //to give the feedback to client action server 
-    bool check_disaster(Eigen::Vector4d curr_pose);
     void reset_PIDs_state(){ PID_pos.reset_PID(); PID_pos.reset_PID(); } //to call when a path is finished (e.g. go out the PIDs loop) 
     void set_gains_pos(float Kp, float Ki, float Kd1, float Kd2){PID_pos.set_gains(Kp, Ki, Kd1, Kd2); _gains_pos_setted = true;}
     void set_gains_yaw(float Kp, float Ki, float Kd1, float Kd2){PID_yaw.set_gains(Kp, Ki, Kd1, Kd2); _gains_yaw_setted = true;}
@@ -149,27 +151,32 @@ class PathFollower {
 		ros::Publisher _marker_velocity_pub;
 };
 
+/********************************************************
+
+Class to implement the action server, also communicates with the UAV via mavros.
+*********************************************************/
 
 class FlyAction
 {
-			public:
+		public:
 			FlyAction(std::string name):
 				_as(_nh, name, false),	_path_follower(10), _action_name(name), _pid_land(3) {initialize_server(); initialize_path_follower();}
+		  
+		  void run();	
+		  
 		 	void initialize_server();
 		 	void initialize_path_follower();
+		 	void arm_and_set_mode(const geometry_msgs::PoseStamped&);
+			
 		 	void px4_cntrl();
-		 	void run();	
+			void ctrl_loop();
+		  void px4_PIDloop();
+					 	
 		  void mavros_state_cb( mavros_msgs::State mstate);
 		  void mavros_local_pose_cb(geometry_msgs::PoseStamped);
 			void qr_pos_cb(const qr_detector_pkg::qr_detection_msg&);
-/*		  void path_cb(nav_msgs::Path);*/
-		  void ctrl_loop();
-		  void px4_PIDloop();
-			void arm_and_set_mode(const geometry_msgs::PoseStamped&);
-			void goalCB();
+		  void goalCB();
 			void preemptCB();
-			
-
 		protected:
 			std::queue<px4_planner::FlyGoal> _goal_queue;
 		
@@ -178,7 +185,10 @@ class FlyAction
 			bool _new_goal_available = false;
 			bool _preempt_request = false;    
 			bool disarmed = true;
-/*			bool _last_position_path_avaiable = false;*/
+			bool _new_qr_msg = false;	  
+		  bool _ending_path = false;
+		  bool _now_path_following = false;
+		  
 			
 			ros::NodeHandle _nh;
 			actionlib::SimpleActionServer<px4_planner::FlyAction> _as;
@@ -186,38 +196,32 @@ class FlyAction
 			px4_planner::FlyFeedback _feedback;
 			px4_planner::FlyResult _result;
 	 		px4_planner::FlyGoal _goal;
-/*	 		px4_planner::FlyGoal* _new_goal_ptr;*/
 			px4_planner::FlyGoal _new_goal;
 			 		
 	 		PathFollower _path_follower;
 			float _freq = PID_FREQ;
 		  
-/*		  PID_contr _pid_qr_land;*/
 			PID_contr _pid_land;
 			ros::Subscriber _qr_pos_sub;
 		  ros::Subscriber _qr_pos_base_sub;
 		  qr_detector_pkg::qr_detection_msg _qr_pos;
-		  bool _new_qr_msg = false;
-		  
-		  bool _ending_path = false;
-		  bool _now_path_following = false;
 		  
 		  Eigen::Vector4d _local_pose;
 		  mavros_msgs::State _mstate;
 		  
 		  ros::Publisher _des_pose_pub;	
 			ros::Publisher _des_vel_pub;
-	  	ros::Publisher _marker_velocity_pub;
-		  
 		  ros::Publisher _local_pos_pub;
 		  ros::Publisher _local_vel_pub;
+	  	ros::Publisher _marker_velocity_pub;
+		  
 		  ros::Subscriber _mavros_state_sub;
 		  ros::Subscriber _path_sub;
 		  ros::Subscriber _local_pose_sub;
+		  
 		  ros::ServiceClient _arming_client;
 		  ros::ServiceClient _set_mode_client;
 		  ros::ServiceClient _land_client;
-		  
 		  ros::ServiceClient _qr_pos_client;
 	};
 

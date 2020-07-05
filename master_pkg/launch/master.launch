@@ -10,7 +10,7 @@
 	<arg name="output" default="screen"/>
   <include file="$(find master_pkg)/launch/tf_trasform.launch" />
 
-  <node pkg="master_pkg" name="master_exe" type="master_exe" output="$(arg output)">
+  <node pkg="master_pkg" name="master_exe" type="master_exe" output="$(arg output)" respawn="true">
   	<param name="lenght_x" value="$(arg lenght_x)"/>
 		<param name="lenght_y" value="$(arg lenght_y)"/>
 		<param name="size_uav" value="$(arg size_uav)"/>

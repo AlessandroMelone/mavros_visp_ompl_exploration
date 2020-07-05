@@ -254,15 +254,15 @@ void MASTER::master_menu(){
 			qr_detector_pkg::activate_service srv_activate;
       srv_activate.request.activate = true;
       if (_client_qrdetector.call(srv_activate)) {
-        landOnQRcode(2.27077, 0.483215, 4);
+        landOnQRcode(8.71-0.5, 5.47-1.5 , 2);
         ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-        landOnQRcode(7.84261, 8.01971, 5);
+        landOnQRcode(9.76-0.5, 1.51-1.5, 3);
         ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-        landOnQRcode(13.8426, 3.45998, 6);
+        landOnQRcode(4.91-0.5, 9.45-1.5, 4);
         ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-        landOnQRcode(4.39203, 2.51232, 1);
+        landOnQRcode(5.72-0.5, 1.44-1.5, 5);
         ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
-        landOnQRcode(5.03641, 8.14686, 2);
+        landOnQRcode(13.71-0.5, 4.91-1.5, 6);
         ros::Duration(TIME_TO_WAIT_ON_QRCODE).sleep();
 	landOnPoint(STARTING_POSITION_X, STARTING_POSITION_Y);
       }
@@ -475,3 +475,4 @@ int main( int argc, char** argv ) {
 	master.run();
 	return 0;
 }
+

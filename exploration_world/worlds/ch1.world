@@ -21,42 +21,42 @@
     </include>
 
 		<include>
-      <pose> 12.53 8.46 1.09 0 0 1.57</pose>
+      <pose> 19.26 7.35 0.05 0 0 1.57</pose>
 <!--      <pose> -2 0.0 0.05 0 0 1.57</pose>-->
       <uri>model://id1</uri>
     </include>
 
 		<include>
-      <pose>  16.66 5.072 2.568 0 0 1.57</pose>
+      <pose>  8.71 5.47 0.05 0 0 1.57</pose>
 <!--      <pose> -2 1.0 0.05 0 0 1.57</pose>-->
       <uri>model://id2</uri>
     </include>
 
 		<include>
-      <pose> 11.0 7.0 0.05 0 0 1.57</pose>
+      <pose> 9.76 1.51 1.07 0 0 1.57</pose>
 <!--      <pose> -2 2.0 0.05 0 0 1.57</pose>-->
       <uri>model://id3</uri>
     </include>
 
 		<include>
-      <pose> 2.8 2.0 0.05 0 0 1.57</pose>
+      <pose> 4.91 9.45 0.05 0 0 1.57</pose>
 <!--      <pose> -2 3.0 0.05 0 0 1.57</pose>-->
       <uri>model://id4</uri>
     </include>
 		<include>
-      <pose> 8.36 9.6 0.05 0 0 1.57</pose>
+      <pose>  5.72 1.44 1.05 0 0 1.57</pose>
 <!--      <pose> -2 4.0 0.05 0 0 1.57</pose>-->
       <uri>model://id5</uri>
     </include>
 
 		<include>
-      <pose> 14.120120 4.918077 0.05 0 0 1.57</pose>
+      <pose> 13.71 4.91 0.05 0 0 1.57</pose>
 <!--      <pose> -2 5.0 0.05 0 0 1.57</pose>-->
       <uri>model://id6</uri>
     </include>
 
 		<include>
-      <pose> 18.734104 1.549950 2.05 0 0 1.57</pose>
+      <pose> 17.12 0.42 0.07 0 0 1.57</pose>
 <!--      <pose> -2 6.0 0.05 0 0 1.57</pose>-->
       <uri>model://id7</uri>
     </include>

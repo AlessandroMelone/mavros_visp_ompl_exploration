@@ -59,24 +59,21 @@ param:
 
 This function will generate a trajectory considering the path and a rectangular velocity profile, and then the trajectory will be pushed in the queue  
 ***************************************************************/
-void PathFollower::push_traj( nav_msgs::Path path, float maxvel, float current_yaw){ 
+void PathFollower::push_traj( nav_msgs::Path path, float maxvel){ 
 
 	KDL::Path_RoundedComposite* path_kdl;
 	
 	std::cout<<"Pushing trajectory in the queue of size: "<<path.poses.size()<<std::endl;
 
 	path_kdl = new KDL::Path_RoundedComposite(0.1,0.01,new KDL::RotationalInterpolation_SingleAxis());
-	path_kdl->Add(KDL::Frame(KDL::Rotation::RPY(0,0,current_yaw), KDL::Vector(path.poses[0].pose.position.x,
-									 																												  path.poses[0].pose.position.y,
-																																				 	 	path.poses[0].pose.position.z)));
+	path_kdl->Add(KDL::Frame(KDL::Rotation::RPY(0,0,0), KDL::Vector(path.poses[0].pose.position.x,
+									 																								path.poses[0].pose.position.y,
+																															 	 	path.poses[0].pose.position.z)));
 									
 	for(int i=1;i < path.poses.size();i++){
-		float dy = path.poses[i].pose.position.y - path.poses[i-1].pose.position.y;
-		float dx = path.poses[i].pose.position.x - path.poses[i-1].pose.position.x;
-		double des_yaw = atan2(dy,dx);
-		path_kdl->Add(KDL::Frame(KDL::Rotation::RPY(0,0,des_yaw), KDL::Vector(path.poses[i].pose.position.x,
-										 																											path.poses[i].pose.position.y,
-																																					path.poses[i].pose.position.z)));										
+		path_kdl->Add(KDL::Frame(KDL::Rotation::RPY(0,0,0), KDL::Vector(path.poses[i].pose.position.x,
+							 																											path.poses[i].pose.position.y,
+																																		path.poses[i].pose.position.z)));										
 	}		
 	path_kdl->Finish();
 	
@@ -180,8 +177,10 @@ bool PathFollower::check_disaster(Eigen::Vector4d curr_pose){
 	if(!_traject_queue.empty())
 		if(  fabs(_traject_queue.front()->Pos(_time_current_traj).p.x() - curr_pose(0) > FAULT_THRESHOLD)
 			|| fabs(_traject_queue.front()->Pos(_time_current_traj).p.y() - curr_pose(1) > FAULT_THRESHOLD)
-			|| fabs(_traject_queue.front()->Pos(_time_current_traj).p.z() - curr_pose(2) > FAULT_THRESHOLD))
+			|| fabs(_traject_queue.front()->Pos(_time_current_traj).p.z() - curr_pose(2) > FAULT_THRESHOLD)){
+	  	ROS_INFO("Disaster! current position: %f ; %f ; %f ", curr_pose(0), curr_pose(1), curr_pose(2));
 	  	return true;
+	  }
 	return false;
 }
 
@@ -484,11 +483,11 @@ void FlyAction::px4_cntrl(){
 						arm_and_set_mode(des_pos);
 						_feedback.progress = 0;
 						_as.publishFeedback(_feedback);
-						float error = fabs(des_pos.pose.position.z - _local_pose(2));
-
+						
 						while( ros::ok() 
 								&& (!_preempt_request) 
-								&& !( fabs((des_pos.pose.position.z - _local_pose(2))/des_pos.pose.position.z) < 0.07 )) {
+								&& (!( fabs(des_pos.pose.position.z - _local_pose(2)) < 0.07 ))) {
+								
 							_local_pos_pub.publish(des_pos);
 							_feedback.progress = (int)(100*_local_pose(2)/des_pos.pose.position.z);
 							_as.publishFeedback(_feedback);
@@ -497,38 +496,7 @@ void FlyAction::px4_cntrl(){
 	//						ROS_INFO("Feedback: %d", _feedback.progress);
 							r.sleep();
 						}
-							
-					
-//						geometry_msgs::TwistStamped cmd_vel;
-//						Eigen::Vector3d cmd_vel_PID;
-//						Eigen::Vector3d land_pos;
-//						land_pos(0) = des_pos.pose.position.x;
-//						land_pos(1) = des_pos.pose.position.y;
-//						land_pos(2) = des_pos.pose.position.z;
-//						float initial_yaw = _local_pose(3);
-//						while( ros::ok() 
-//									&& (!_preempt_request)
-//							    && !(fabs(des_pos.pose.position.z - _local_pose(2)) < 0.05 ) )
-//					  {
-//					  			std::cout<<"error: "<<(fabs(des_pos.pose.position.z - _local_pose(2)) < 0.03) <<std::endl;			
-//					  			Eigen::Vector3d local_pos;
-//					  			local_pos(0) = _local_pose(0);
-//					  			local_pos(1) = _local_pose(1);
-//					  			local_pos(2) = _local_pose(2);
-
-//									cmd_vel_PID = _pid_land.ctrl_loop_PID(land_pos-local_pos);
-//									cmd_vel.twist.linear.x = cmd_vel_PID(0);
-//									cmd_vel.twist.linear.y = cmd_vel_PID(1);
-//									cmd_vel.twist.linear.z = cmd_vel_PID(2);
-
-//									//publishing for rviz visualization
-//									_path_follower.publishing_rviz_topic( _local_pose, land_pos, initial_yaw, cmd_vel_PID);
-////									ROS_INFO("freq check");
-//	//							std::cout<<"cmd_vel_PID: "<<std::endl<<cmd_vel_PID<<std::endl;
-//									_local_vel_pub.publish(cmd_vel);							
-//									std::cout<<"Error PID: "<<land_pos-local_pos<<std::endl;
-//									r.sleep();
-//						}
+						
 						
 						if(_preempt_request){
 							_preempt_request = false;
@@ -540,7 +508,17 @@ void FlyAction::px4_cntrl(){
 					    ROS_INFO("%s: Succeeded", _action_name.c_str());
 					    _result.result = true;
 					    _as.setSucceeded(_result);
+						
+							//waits for a new goal in order to avoid to go in hovering if no goal still available when the 
+							//takeoff is finished (caused by the time to compute the path for the client)
+							while( ros::ok() 
+								  	&& (!_new_goal_available)) {
+
+								_local_pos_pub.publish(des_pos);
+								r.sleep();
+							}
 						}
+
 					}
 					break;			
 				}// end FlyGoal::TAKEOFF
@@ -619,10 +597,12 @@ void FlyAction::px4_cntrl(){
 						Eigen::Vector3d qr_land_pos;
 						_pid_land.reset_PID();
 						bool first_msg_arrived = false;	
-						float initial_yaw = _local_pose(3);		
+						float initial_yaw = _local_pose(3);
+						float t = 0;		
 					  while( ros::ok() 
 									&& (!_preempt_request)
-									&&  !first_msg_arrived)
+									&&  (!first_msg_arrived)
+									&& (t < 10))
 					  {
 			  			Eigen::Vector3d local_pos;
 			  			local_pos(0) = _local_pose(0);
@@ -644,41 +624,47 @@ void FlyAction::px4_cntrl(){
 								qr_land_pos(2) = _local_pose(2);
 								first_msg_arrived = true;
 							}
-							
+							t += 1/10;
 							r.sleep();
 						}				
 						_new_qr_msg = false;
 						
-						/* reaching precise QR code position*/
-						while( ros::ok() 
-									&& (!_preempt_request)
-							    && (!(fabs(qr_land_pos(0) - _local_pose(0)) < LANDING_ERROR_THRESHOLD )
-									|| !(fabs(qr_land_pos(1) - _local_pose(1)) < LANDING_ERROR_THRESHOLD )) )
-					  {
-							if(_new_qr_msg && (_qr_pos.qr_code == goal.qr_code)){ //updating QR code position
-								qr_land_pos(0) = _qr_pos.qr_position.x;
-								qr_land_pos(1) = _qr_pos.qr_position.y;
-								_new_qr_msg = false;
+						if(t < 10)
+							/* reaching precise QR code position*/
+							while( ros::ok() 
+										&& (!_preempt_request)
+									  && (!(pow(qr_land_pos(0) - _local_pose(0),2) + pow(qr_land_pos(1) - _local_pose(1),2) <
+									  		 pow(QR_LANDING_ERROR_THRESHOLD,2))) )
+							{
+								if(_new_qr_msg && (_qr_pos.qr_code == goal.qr_code)){ //updating QR code position
+									qr_land_pos(0) = _qr_pos.qr_position.x;
+									qr_land_pos(1) = _qr_pos.qr_position.y;
+									_new_qr_msg = false;
+								}
+
+								Eigen::Vector3d local_pos;
+								local_pos(0) = _local_pose(0);
+								local_pos(1) = _local_pose(1);
+								local_pos(2) = _local_pose(2);
+								
+								cmd_vel_PID = _pid_land.ctrl_loop_PID(qr_land_pos-local_pos);
+								cmd_vel.twist.linear.x = cmd_vel_PID(0);
+								cmd_vel.twist.linear.y = cmd_vel_PID(1);
+								cmd_vel.twist.linear.z = cmd_vel_PID(2);
+								
+								//publishing for rviz visualization 							
+								_path_follower.publishing_rviz_topic( _local_pose, initial_pos, initial_yaw, cmd_vel_PID);
+
+								_local_vel_pub.publish(cmd_vel);							
+								r.sleep();
 							}
-
-			  			Eigen::Vector3d local_pos;
-			  			local_pos(0) = _local_pose(0);
-			  			local_pos(1) = _local_pose(1);
-			  			local_pos(2) = _local_pose(2);
-			  			
-							cmd_vel_PID = _pid_land.ctrl_loop_PID(qr_land_pos-local_pos);
-							cmd_vel.twist.linear.x = cmd_vel_PID(0);
-							cmd_vel.twist.linear.y = cmd_vel_PID(1);
-							cmd_vel.twist.linear.z = cmd_vel_PID(2);
-							
-							//publishing for rviz visualization 							
-							_path_follower.publishing_rviz_topic( _local_pose, initial_pos, initial_yaw, cmd_vel_PID);
-
-							_local_vel_pub.publish(cmd_vel);							
-							r.sleep();
+						else{
+							ROS_WARN("QR code not finded, timer expired");
+						_result.result = false;
+						_as.setAborted(_result);
 						}
-					
-						if(_preempt_request){
+						
+						if(_preempt_request && (t < 10)){
 							_preempt_request = false;
 							ROS_INFO("%s: Preempted", _action_name.c_str());
 							_as.setPreempted();
@@ -691,7 +677,6 @@ void FlyAction::px4_cntrl(){
 							ROS_INFO("%s: Succeeded", _action_name.c_str());
 							_result.result = true;
 							_as.setSucceeded(_result);
-							
 					  }			
 					}
 					break;
@@ -712,7 +697,7 @@ void FlyAction::px4_cntrl(){
 																																				goal.path.poses[i].pose.position.z);
 																																				
 						}
-						_path_follower.push_traj(goal.path, goal.path_vel, _local_pose(3));
+						_path_follower.push_traj(goal.path, goal.path_vel);
 						std::cout<<"px4_cntrl(): Received new checkpoint of the path, total number of checkpoint: "<<
 																																			_path_follower.traj_queue_size()<<std::endl;
 						

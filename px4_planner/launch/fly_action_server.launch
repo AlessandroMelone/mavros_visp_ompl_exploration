@@ -2,7 +2,7 @@
 <launch>
 	<arg name="output" default="screen"/>
 <!--		pos PID parameters-->
-  <arg name="Kp_pos" default="2.3"/>
+  <arg name="Kp_pos" default="2.2"/>
   <arg name="Ki_pos" default="0.005"/>
   <arg name="Kd1_pos" default="0"/>
   <arg name="Kd2_pos" default="0"/>

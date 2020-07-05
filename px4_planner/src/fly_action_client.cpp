@@ -43,10 +43,10 @@ The solution to plan more "shorter path" is adopted because the entire octomap o
 /* Solver variables */
 #define OCTOMAP_TOPICNAME "/octomap_binary"
 #define SOLVE_PLANNING_TIME_LIMIT 1
-#define BOX_SIZE_1 1.0
-#define BOX_SIZE_2 1.0
-#define BOX_SIZE_3 1.0
-#define STARTING_HEIGHT 1.5
+#define BOX_SIZE_1 1.2
+#define BOX_SIZE_2 1.2
+#define BOX_SIZE_3 1.2
+#define STARTING_HEIGHT 1.7
 #define INCREASE_HEIGHT 0.5 //height increase amount when the planning fails.
 #define NPATH_BEFORE_DECREASE_ALTITUDE 2
 
@@ -220,6 +220,7 @@ void OMPL_PLAN::octomapCallback(const octomap_msgs::Octomap::ConstPtr &msg) {
     //ros::Rate r(5);
     while (ros::ok() && solving_planning) {
       cout<<"----> Waiting to update octomap"<<endl;
+      //r.sleep();
     }
   	// Update the octree used for collision checking
   	updateMap(std::shared_ptr<fcl::CollisionGeometry>(tree));
@@ -282,6 +283,13 @@ void OMPL_PLAN::ompl_init(float x_i,float y_i, float z_i, float x_f, float y_f, 
 	bounds.setHigh(1,20); //y
 	bounds.setLow(2,-20000);
 	bounds.setHigh(2,20000); //z
+/*  bounds.setLow(0,-1); //qui devono andare le coordinate del box parametrizzate
+	bounds.setHigh(0,20); //x
+	bounds.setLow(1,-1);
+	bounds.setHigh(1,10); //y
+	bounds.setLow(2, 0);
+	bounds.setHigh(2,3.5); //z
+*/
 	_space->as<ob::SE3StateSpace>()->setBounds(bounds);
 
 	// construct an instance of  space information from this state space
@@ -364,6 +372,9 @@ void OMPL_PLAN::plan() {
 		}
 		//ros::Rate r(10);
 	}
+	else {
+    cout << "CORCAZZO!" << endl;
+  }
   plan->clear();
 }
 
@@ -615,7 +626,7 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
       z_i = z_i + INCREASE_HEIGHT;
       z_f = z_i;
       extra_path++;
-      cout<<"Failed to compute path because of the initial state! Increasing z initial to "<<z_i<<endl;
+      cout<<"CORCAAZZO----------------------------------> Failed to compute path! Increasing z initial to "<<z_i<<endl;
     }
   }
 
