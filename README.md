@@ -1,8 +1,5 @@
 # UAV exploration in unknown environment and QR detection
-The README.md of the repository (we will see it in our last course lesson), must
-contain a comprehensive description on how to download, compile/install and run
-your solution. For this reason, in this section you must also add any reference to
-external dependencies needed to compile/run the project solution..
+
 # Setup Instructions
 It is recommended to use Ubuntu 16.04, gazebo-8 and ROS melodic since all the tests have been made on it. 
 
@@ -12,7 +9,7 @@ It is recommended to use Ubuntu 16.04, gazebo-8 and ROS melodic since all the te
     $  git clone https://github.com/AlessandroMelone/mavros_visp_ompl_exploration.git
     ```
 
-- Download [jocacace/Firmware][jo_rep] and follow the instruction in the related [README.md][jo_README]. Doing this step, when the istructions 
+- Download [jocacace/Firmware](https://github.com/jocacace) and follow the instruction in the related [README](https://github.com/jocacace/Firmware/blob/master/README.md). Doing this step, when the istructions 
     ```sh
     $ cd Firmware && make px4_sitl_default
     $ make px4_sitl_default gazebo
@@ -56,11 +53,11 @@ In this case you just need to comment the commands *add_executable(...)*  and *t
 ```sh
     $ catkin_make
 ```
-until the building is 100% complete.
 
-Now the messages files have been created so restore the *CMakeLists.txt* files and build again until the building is 100% complete.
+
+Now the messages files have been created so restore the *CMakeLists.txt* files and build again.
 # Running 
-- To run the code, first of all you have to launch the Gazebo simulation. Before running the simulation you should load the gazebo configuration as explained in [jocacace/Firmware][jo_rep] README. Run the fallowing istructions: 
+- To run the code, first of all you have to launch the Gazebo simulation. Before running the simulation you should load the gazebo configuration as explained in [jocacace/Firmware](https://github.com/jocacace) README. Run the following istructions: 
      ```sh    
         $ roscd px4
         $ cd Tools/sitl_gazebo && source load_sitl_conf.sh
