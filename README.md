@@ -95,3 +95,6 @@ After done the command `roslaunch master_pkg all.launch` will start rviz and wil
 * velocity command computed by the PID: rviz marker green arrow. 
 * last path sent by the action client to the action server: green line.
 
+# Test
+To watch two test with different QR codes positions click the following link: https://youtu.be/9q2p-nuvVdM
+
