@@ -1,7 +1,7 @@
 # UAV exploration in unknown environment and QR detection
 
 # Setup Instructions
-It is recommended to use Ubuntu 16.04, gazebo-8 and ROS melodic since all the tests have been made on it. 
+It is recommended to use Ubuntu 18.04, gazebo-8 and ROS melodic since all the tests have been made on it. 
 
 # Dependencies Installation
 - Download the code in the ROS src folder using 
