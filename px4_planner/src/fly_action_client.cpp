@@ -372,9 +372,6 @@ void OMPL_PLAN::plan() {
 		}
 		//ros::Rate r(10);
 	}
-	else {
-    cout << "CORCAZZO!" << endl;
-  }
   plan->clear();
 }
 
@@ -626,7 +623,7 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
       z_i = z_i + INCREASE_HEIGHT;
       z_f = z_i;
       extra_path++;
-      cout<<"CORCAAZZO----------------------------------> Failed to compute path! Increasing z initial to "<<z_i<<endl;
+      cout<<"----------------------------------> Failed to compute path! Increasing z initial to "<<z_i<<endl;
     }
   }
 
