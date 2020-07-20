@@ -640,17 +640,14 @@ nav_msgs::Path QuadCommanderManager::computePath_mod_OMPLinterface() {
     temp_pose.pose.orientation.z = 0;
     temp_pose.pose.orientation.w = 1;
 
-    cout<<"here"<<endl;
 
     nav_msgs::Path temp_path;
     temp_path.poses.push_back(temp_pose);
 
     for (int i = 0; i<path.poses.size(); i++) {
       temp_path.poses.push_back(path.poses[i]);
-      cout<<"here "<<i<<endl;
     }
     path = temp_path;
-    cout<<"here.."<<endl;
   }
 
   quadcopterPosition = path.poses[path.poses.size()-1].pose.position;
